@@ -1,16 +1,17 @@
 # Mockyard
 
-A fast, self-hostable mock data generator written in Rust. An open-source alternative to Mockaroo.
+A fast, self-hostable mock data generator written in Rust. An open-source alternative to [Mockaroo](https://mockaroo.com).
 
 ## Features
 
 - **Fast** — built with Rust and Axum for high-throughput data generation
-- **Self-hostable** — single binary, Docker-ready, serverless-compatible
-- **Web UI** — clean interface for building schemas and generating data
-- **REST API** — versioned API for programmatic access
-- **Multiple formats** — export to CSV or JSON
-- **Rich field types** — 35+ data types including names, emails, addresses, numbers, booleans, enums, dates, and more
-- **Fine-grained control** — null/blank percentages, boolean distributions, enum weight distributions, number ranges
+- **Self-hostable** — single binary, Docker-ready, runs on Cloud Run / AWS Lambda
+- **Web UI** — reactive schema builder powered by Alpine.js with localStorage persistence
+- **REST API** — versioned endpoint (`POST /v1/generate`) with full [OpenAPI 3.1 spec](/static/openapi.yaml)
+- **Interactive API docs** — built-in docs page with try-it-out at `/docs`
+- **CSV & JSON export** — download generated data in either format
+- **35+ field types** — names, emails, addresses, phone numbers, IPs, UUIDs, dates, credit cards, and more
+- **Fine-grained control** — null/blank percentages, boolean true/false distributions, weighted enum values, number ranges with negative support, decimal precision
 
 ## Quick Start
 
@@ -25,7 +26,8 @@ cargo run
 
 ```bash
 docker compose up
-# or
+
+# or build and run manually
 docker build -t mockyard .
 docker run -p 8080:8080 mockyard
 ```
@@ -34,64 +36,38 @@ docker run -p 8080:8080 mockyard
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `PORT`   | `8080`  | Server port |
+| `PORT`   | `8080`  | Server listen port |
 
 ## API
+
+Full interactive documentation is available at `/docs` when the server is running. The OpenAPI spec is at `/static/openapi.yaml`.
 
 ### `POST /v1/generate`
 
 Generate mock data from a schema definition.
 
-**Request body:**
-
-```json
-{
-  "fields": [
-    {
-      "name": "id",
-      "type": "row_number",
-      "options": {}
-    },
-    {
-      "name": "first_name",
-      "type": "first_name",
-      "options": {
-        "blank_percentage": 5
-      }
-    },
-    {
-      "name": "role",
-      "type": "enum",
-      "options": {
-        "values": [
-          { "value": "Admin", "weight": 5 },
-          { "value": "Manager", "weight": 25 },
-          { "value": "Viewer" }
-        ]
-      }
-    },
-    {
-      "name": "active",
-      "type": "boolean",
-      "options": {
-        "true_percentage": 80
-      }
-    },
-    {
-      "name": "score",
-      "type": "integer",
-      "options": {
-        "min": -100,
-        "max": 100
-      }
-    }
-  ],
-  "num_rows": 1000,
-  "format": "csv"
-}
+```bash
+curl -X POST http://localhost:8080/v1/generate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fields": [
+      { "name": "id", "type": "row_number", "options": {} },
+      { "name": "name", "type": "full_name", "options": {} },
+      { "name": "email", "type": "email", "options": { "blank_percentage": 5 } },
+      { "name": "role", "type": "enum", "options": {
+          "values": [
+            { "value": "Admin", "weight": 5 },
+            { "value": "Manager", "weight": 25 },
+            { "value": "Viewer" }
+          ]
+      }},
+      { "name": "active", "type": "boolean", "options": { "true_percentage": 80 } },
+      { "name": "score", "type": "integer", "options": { "min": -100, "max": 100 } }
+    ],
+    "num_rows": 1000,
+    "format": "json"
+  }'
 ```
-
-**Response:** CSV or JSON data depending on the `format` field.
 
 ### Field Types
 
@@ -135,11 +111,11 @@ Generate mock data from a schema definition.
 | `percentage` | Percentage | `min`, `max`, `decimals` |
 | `currency` | Currency amount | `min`, `max`, `decimals` |
 
-### Options (all types)
+### Field Options (all types)
 
 | Option | Type | Description |
 |--------|------|-------------|
-| `blank_percentage` | `number` | Percentage of values that should be null (0–100) |
+| `blank_percentage` | `number` | Percentage of values that should be null/blank (0–100) |
 
 ## Deployment
 
@@ -154,7 +130,14 @@ gcloud run deploy mockyard \
 
 ### AWS Lambda
 
-Use [cargo-lambda](https://www.cargo-lambda.info/) or build the Docker image and deploy to Lambda with container image support.
+Use [cargo-lambda](https://www.cargo-lambda.info/) or deploy the Docker image with Lambda container image support.
+
+## Tech Stack
+
+- **Rust** with [Axum](https://github.com/tokio-rs/axum) for the HTTP server
+- **[fake](https://crates.io/crates/fake)** crate for data generation
+- **[Alpine.js](https://alpinejs.dev/)** for the reactive frontend
+- **[rust-embed](https://crates.io/crates/rust-embed)** to bundle static assets into the binary
 
 ## License
 

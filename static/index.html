@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
@@ -46,15 +47,20 @@ body {
 /* ── Header ── */
 .header {
   border-bottom: 1px solid var(--border);
-  padding: 0 2rem;
-  height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   background: var(--bg-surface);
   position: sticky;
   top: 0;
   z-index: 100;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .logo {
@@ -78,13 +84,18 @@ body {
 
 .logo-icon svg { width: 16px; height: 16px; }
 
-.logo span { color: var(--accent); }
 
-.header-meta {
+.header-link {
   font-family: var(--mono);
   font-size: 0.78rem;
   color: var(--text-muted);
   letter-spacing: 0.03em;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.header-link:hover {
+  color: var(--accent);
 }
 
 /* ── Main ── */
@@ -468,21 +479,22 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
 <body>
 
 <header class="header">
-  <div class="logo">
-    <div class="logo-icon">
-      <svg viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <rect x="3" y="3" width="7" height="7" rx="1"/>
-        <rect x="14" y="3" width="7" height="7" rx="1"/>
-        <rect x="3" y="14" width="7" height="7" rx="1"/>
-        <rect x="14" y="14" width="7" height="7" rx="1"/>
-      </svg>
+  <div class="header-inner">
+    <div class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div><span>mock<span style="color:var(--accent)">yard</span></span>
     </div>
-    mock<span>yard</span>
+    <a href="/docs" class="header-link">API Docs</a>
   </div>
-  <div class="header-meta">mock data generator</div>
 </header>
 
-<main class="main">
+<main class="main" x-data="mockyard()" x-effect="persist()">
   <div class="schema-header">
     <span>Field Name</span>
     <span>Type</span>
@@ -490,34 +502,125 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
     <span></span>
   </div>
 
-  <div id="fields-container"></div>
+  <div>
+    <template x-for="(field, fi) in fields" :key="field.id">
+      <div class="field-row">
+        <input type="text" class="field-name-input"
+               x-model="field.name" placeholder="field_name">
+
+        <select x-model="field.type">
+          <template x-for="group in typeGroups" :key="group.name">
+            <optgroup :label="group.name">
+              <template x-for="t in group.types" :key="t.value">
+                <option :value="t.value" x-text="t.label" :selected="t.value === field.type"></option>
+              </template>
+            </optgroup>
+          </template>
+        </select>
+
+        <div class="options-panel">
+          <!-- Blank % (all types) -->
+          <div class="opt-group">
+            <label>blank</label>
+            <input type="number" x-model.number="field.blankPct" min="0" max="100" step="1">
+            <label>%</label>
+          </div>
+
+          <!-- Boolean: true % -->
+          <div class="opt-group" x-show="field.type === 'boolean'">
+            <label>true</label>
+            <input type="number" x-model.number="field.truePct" min="0" max="100" step="1">
+            <label>%</label>
+          </div>
+
+          <!-- Numeric: min/max -->
+          <div class="opt-group" x-show="['integer','decimal','percentage','currency'].includes(field.type)">
+            <label>min</label>
+            <input type="number" :value="field.min" step="any" placeholder="0"
+                   @change="field.min = $event.target.value === '' ? null : parseFloat($event.target.value)">
+          </div>
+          <div class="opt-group" x-show="['integer','decimal','percentage','currency'].includes(field.type)">
+            <label>max</label>
+            <input type="number" :value="field.max" step="any" placeholder="100"
+                   @change="field.max = $event.target.value === '' ? null : parseFloat($event.target.value)">
+          </div>
+
+          <!-- Decimal types: decimal places -->
+          <div class="opt-group" x-show="['decimal','currency'].includes(field.type)">
+            <label>decimals</label>
+            <input type="number" x-model.number="field.decimals" min="0" max="10" step="1">
+          </div>
+
+          <!-- Enum builder -->
+          <template x-if="field.type === 'enum'">
+            <div class="enum-builder">
+              <template x-for="(ev, ei) in field.enumValues" :key="ei">
+                <div class="enum-row">
+                  <input type="text" x-model="ev.value" placeholder="value">
+                  <input type="number" :value="ev.weight" min="0" max="100" step="1"
+                         :placeholder="ev.weight === null && enumUnweighted(field) > 0 ? Math.round(enumRemaining(field) / enumUnweighted(field)) : ''"
+                         @change="ev.weight = $event.target.value === '' ? null : parseFloat($event.target.value)">
+                  <label style="color:var(--text-muted);font-family:var(--mono);font-size:0.7rem">%</label>
+                  <button class="btn-enum-remove" x-show="field.enumValues.length > 1"
+                          @click="field.enumValues.splice(ei, 1)">&times;</button>
+                </div>
+              </template>
+              <button class="btn-enum-add" @click="field.enumValues.push({ value: '', weight: null })">+ value</button>
+              <div class="enum-remaining">
+                <template x-if="enumTotalWeight(field) > 100">
+                  <span style="color:var(--danger)" x-text="'weights exceed 100% (total: ' + enumTotalWeight(field) + '%)'"></span>
+                </template>
+                <template x-if="enumTotalWeight(field) <= 100 && enumUnweighted(field) > 0">
+                  <span x-text="'unweighted values get ' + (enumRemaining(field) / enumUnweighted(field)).toFixed(1) + '% each'"></span>
+                </template>
+                <template x-if="enumTotalWeight(field) <= 100 && enumUnweighted(field) === 0">
+                  <span x-text="'total: ' + enumTotalWeight(field) + '%'"></span>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <button class="btn-remove" @click="fields.splice(fi, 1)" title="Remove field">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </template>
+  </div>
 
   <div class="add-field-row">
-    <button class="btn-add" onclick="addField()">+ add field</button>
+    <button class="btn-add" @click="addField()">+ add field</button>
   </div>
 
   <div class="controls">
     <div class="control-group">
-      <label for="num-rows">Rows</label>
-      <input type="number" id="num-rows" value="100" min="1" max="100000" step="1">
+      <label>Rows</label>
+      <input type="number" x-model.number="numRows" min="1" max="100000" step="1">
     </div>
     <div class="control-group">
-      <label for="format">Format</label>
-      <select id="format">
+      <label>Format</label>
+      <select x-model="format">
         <option value="csv">CSV</option>
         <option value="json">JSON</option>
       </select>
     </div>
     <div class="controls-spacer"></div>
-    <button class="btn-generate" id="btn-generate" onclick="generate()">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3"/>
-      </svg>
-      Generate
+    <button class="btn-generate" :disabled="generating" @click="generate()">
+      <template x-if="generating">
+        <span class="spinner"></span>
+      </template>
+      <template x-if="!generating">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </template>
+      <span x-text="generating ? 'Generating...' : 'Generate'"></span>
     </button>
   </div>
 
-  <div id="status" class="status"></div>
+  <div class="status" :class="statusType" x-text="statusMsg"></div>
 </main>
 
 <script>
@@ -555,22 +658,16 @@ const FIELD_TYPES = [
   { value: 'word', label: 'Word', group: 'Text' },
   { value: 'integer', label: 'Integer', group: 'Number' },
   { value: 'decimal', label: 'Decimal', group: 'Number' },
-  { value: 'boolean', label: 'Boolean', group: 'Basic' },
-  { value: 'enum', label: 'Enum', group: 'Basic' },
   { value: 'percentage', label: 'Percentage', group: 'Number' },
   { value: 'currency', label: 'Currency', group: 'Number' },
+  { value: 'boolean', label: 'Boolean', group: 'Basic' },
+  { value: 'enum', label: 'Enum', group: 'Basic' },
 ];
 
-const NUMERIC_TYPES = ['integer', 'decimal', 'percentage', 'currency'];
-const DECIMAL_TYPES = ['decimal', 'currency'];
-const NEEDS_RANGE = [...NUMERIC_TYPES];
+const NUMERIC_TYPES = new Set(['integer', 'decimal', 'percentage', 'currency']);
+const DECIMAL_TYPES = new Set(['decimal', 'currency']);
 
-let fields = [];
-let fieldIdCounter = 0;
-
-function createFieldId() {
-  return ++fieldIdCounter;
-}
+const STORAGE_KEY = 'mockyard_schema';
 
 const DEFAULT_FIELDS = [
   { name: 'id', type: 'row_number' },
@@ -581,333 +678,191 @@ const DEFAULT_FIELDS = [
   { name: 'ip_address', type: 'ipv4' },
 ];
 
-function buildTypeOptions() {
-  let html = '';
-  let currentGroup = '';
+// Pre-compute grouped types for the select optgroups
+function buildTypeGroups() {
+  const groups = [];
+  let current = null;
   for (const t of FIELD_TYPES) {
-    if (t.group !== currentGroup) {
-      if (currentGroup) html += '</optgroup>';
-      html += `<optgroup label="${t.group}">`;
-      currentGroup = t.group;
+    if (!current || current.name !== t.group) {
+      current = { name: t.group, types: [] };
+      groups.push(current);
     }
-    html += `<option value="${t.value}">${t.label}</option>`;
+    current.types.push(t);
   }
-  if (currentGroup) html += '</optgroup>';
-  return html;
+  return groups;
 }
 
-const TYPE_OPTIONS_HTML = buildTypeOptions();
+let nextId = 0;
 
-function addField(config) {
-  const id = createFieldId();
-  const name = config?.name || '';
-  const type = config?.type || 'first_name';
+function mockyard() {
+  const saved = loadState();
 
-  const field = {
-    id,
-    name,
-    type,
-    blankPct: 0,
-    truePct: 50,
-    min: null,
-    max: null,
-    decimals: 2,
-    enumValues: [{ value: '', weight: null }],
-  };
-
-  fields.push(field);
-  renderField(field);
-  return field;
-}
-
-function renderField(field) {
-  const container = document.getElementById('fields-container');
-  const row = document.createElement('div');
-  row.className = 'field-row';
-  row.id = `field-${field.id}`;
-  row.innerHTML = buildFieldHTML(field);
-  container.appendChild(row);
-}
-
-function buildFieldHTML(field) {
-  return `
-    <input type="text" class="field-name-input" value="${escHtml(field.name)}"
-           placeholder="field_name" onchange="updateFieldName(${field.id}, this.value)">
-    <select onchange="updateFieldType(${field.id}, this.value)">
-      ${TYPE_OPTIONS_HTML.replace(`value="${field.type}"`, `value="${field.type}" selected`)}
-    </select>
-    <div class="options-panel" id="opts-${field.id}">
-      ${buildOptionsHTML(field)}
-    </div>
-    <button class="btn-remove" onclick="removeField(${field.id})" title="Remove field">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-      </svg>
-    </button>
-  `;
-}
-
-function buildOptionsHTML(field) {
-  let html = `
-    <div class="opt-group">
-      <label>blank</label>
-      <input type="number" value="${field.blankPct}" min="0" max="100" step="1"
-             onchange="updateFieldOpt(${field.id}, 'blankPct', this.value)">
-      <label>%</label>
-    </div>
-  `;
-
-  if (field.type === 'boolean') {
-    html += `
-      <div class="opt-group">
-        <label>true</label>
-        <input type="number" value="${field.truePct}" min="0" max="100" step="1"
-               onchange="updateFieldOpt(${field.id}, 'truePct', this.value)">
-        <label>%</label>
-      </div>
-    `;
-  }
-
-  if (NEEDS_RANGE.includes(field.type)) {
-    const minVal = field.min !== null ? field.min : '';
-    const maxVal = field.max !== null ? field.max : '';
-    html += `
-      <div class="opt-group">
-        <label>min</label>
-        <input type="number" value="${minVal}" step="any"
-               placeholder="0" onchange="updateFieldOpt(${field.id}, 'min', this.value)">
-      </div>
-      <div class="opt-group">
-        <label>max</label>
-        <input type="number" value="${maxVal}" step="any"
-               placeholder="100" onchange="updateFieldOpt(${field.id}, 'max', this.value)">
-      </div>
-    `;
-  }
-
-  if (DECIMAL_TYPES.includes(field.type)) {
-    html += `
-      <div class="opt-group">
-        <label>decimals</label>
-        <input type="number" value="${field.decimals}" min="0" max="10" step="1"
-               onchange="updateFieldOpt(${field.id}, 'decimals', this.value)">
-      </div>
-    `;
-  }
-
-  if (field.type === 'enum') {
-    html += buildEnumHTML(field);
-  }
-
-  return html;
-}
-
-function buildEnumHTML(field) {
-  const totalWeight = field.enumValues.reduce((s, v) => s + (v.weight !== null ? v.weight : 0), 0);
-  const unweighted = field.enumValues.filter(v => v.weight === null).length;
-  const remaining = Math.max(0, 100 - totalWeight);
-
-  let html = '<div class="enum-builder">';
-
-  field.enumValues.forEach((ev, i) => {
-    html += `
-      <div class="enum-row">
-        <input type="text" value="${escHtml(ev.value)}" placeholder="value"
-               onchange="updateEnumValue(${field.id}, ${i}, 'value', this.value)">
-        <input type="number" value="${ev.weight !== null ? ev.weight : ''}" min="0" max="100"
-               step="1" placeholder="${unweighted > 0 && ev.weight === null ? (remaining / unweighted).toFixed(0) : 'wt%'}"
-               onchange="updateEnumValue(${field.id}, ${i}, 'weight', this.value)">
-        ${field.enumValues.length > 1 ? `<button class="btn-enum-remove" onclick="removeEnumValue(${field.id}, ${i})">&times;</button>` : ''}
-      </div>
-    `;
-  });
-
-  html += `
-    <button class="btn-enum-add" onclick="addEnumValue(${field.id})">+ value</button>
-    <div class="enum-remaining">${remaining.toFixed(0)}% remaining</div>
-  </div>`;
-
-  return html;
-}
-
-function updateFieldName(id, value) {
-  const field = fields.find(f => f.id === id);
-  if (field) field.name = value;
-}
-
-function updateFieldType(id, value) {
-  const field = fields.find(f => f.id === id);
-  if (!field) return;
-  field.type = value;
-  refreshOptions(id);
-}
-
-function updateFieldOpt(id, key, value) {
-  const field = fields.find(f => f.id === id);
-  if (!field) return;
-  if (key === 'min' || key === 'max') {
-    field[key] = value === '' ? null : parseFloat(value);
-  } else {
-    field[key] = parseFloat(value) || 0;
-  }
-}
-
-function refreshOptions(id) {
-  const field = fields.find(f => f.id === id);
-  if (!field) return;
-  const panel = document.getElementById(`opts-${id}`);
-  if (panel) panel.innerHTML = buildOptionsHTML(field);
-}
-
-function updateEnumValue(fieldId, index, key, value) {
-  const field = fields.find(f => f.id === fieldId);
-  if (!field) return;
-  if (key === 'weight') {
-    field.enumValues[index].weight = value === '' ? null : parseFloat(value);
-  } else {
-    field.enumValues[index].value = value;
-  }
-  refreshOptions(fieldId);
-}
-
-function addEnumValue(fieldId) {
-  const field = fields.find(f => f.id === fieldId);
-  if (!field) return;
-  field.enumValues.push({ value: '', weight: null });
-  refreshOptions(fieldId);
-}
-
-function removeEnumValue(fieldId, index) {
-  const field = fields.find(f => f.id === fieldId);
-  if (!field || field.enumValues.length <= 1) return;
-  field.enumValues.splice(index, 1);
-  refreshOptions(fieldId);
-}
-
-function removeField(id) {
-  fields = fields.filter(f => f.id !== id);
-  const row = document.getElementById(`field-${id}`);
-  if (row) {
-    row.style.opacity = '0';
-    row.style.transform = 'translateY(-8px)';
-    row.style.transition = 'all 150ms ease';
-    setTimeout(() => row.remove(), 150);
-  }
-}
-
-function buildPayload() {
-  const numRows = parseInt(document.getElementById('num-rows').value) || 100;
-  const format = document.getElementById('format').value;
-
-  const fieldDefs = fields.map(f => {
-    const def = {
-      name: f.name || 'unnamed',
-      type: f.type,
-      options: {
-        blank_percentage: f.blankPct || 0,
-      },
-    };
-
-    if (f.type === 'boolean') {
-      def.options.true_percentage = f.truePct;
-    }
-
-    if (NEEDS_RANGE.includes(f.type)) {
-      if (f.min !== null) def.options.min = f.min;
-      if (f.max !== null) def.options.max = f.max;
-    }
-
-    if (DECIMAL_TYPES.includes(f.type)) {
-      def.options.decimals = f.decimals;
-    }
-
-    if (f.type === 'enum') {
-      def.options.values = f.enumValues
-        .filter(v => v.value.trim() !== '')
-        .map(v => {
-          const entry = { value: v.value };
-          if (v.weight !== null) entry.weight = v.weight;
-          return entry;
-        });
-    }
-
-    return def;
-  });
+  const initialFields = (saved && saved.fields && saved.fields.length > 0)
+    ? saved.fields.map(f => ({ ...makeField(f), id: ++nextId }))
+    : DEFAULT_FIELDS.map(f => ({ ...makeField(f), id: ++nextId }));
 
   return {
-    fields: fieldDefs,
-    num_rows: numRows,
-    format,
+    fields: initialFields,
+    numRows: saved?.numRows || 100,
+    format: saved?.format || 'csv',
+    generating: false,
+    statusMsg: '',
+    statusType: '',
+    typeGroups: buildTypeGroups(),
+
+    isNumeric(type) { return NUMERIC_TYPES.has(type); },
+    isDecimal(type) { return DECIMAL_TYPES.has(type); },
+
+    enumTotalWeight(field) {
+      return field.enumValues.reduce((s, v) => s + (v.weight !== null ? v.weight : 0), 0);
+    },
+    enumUnweighted(field) {
+      return field.enumValues.filter(v => v.weight === null).length;
+    },
+    enumRemaining(field) {
+      return Math.max(0, 100 - this.enumTotalWeight(field));
+    },
+
+    addField(config) {
+      this.fields.push({ ...makeField(config), id: ++nextId });
+    },
+
+    persist() {
+      try {
+        const state = {
+          fields: this.fields.map(f => ({
+            name: f.name, type: f.type, blankPct: f.blankPct,
+            truePct: f.truePct, min: f.min, max: f.max,
+            decimals: f.decimals, enumValues: JSON.parse(JSON.stringify(f.enumValues)),
+          })),
+          numRows: this.numRows,
+          format: this.format,
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (_) {}
+    },
+
+    validate() {
+      if (this.fields.length === 0) {
+        return 'Add at least one field.';
+      }
+      for (const f of this.fields) {
+        if (f.type === 'enum') {
+          const total = this.enumTotalWeight(f);
+          if (total > 100) {
+            return `Field "${f.name || 'unnamed'}": enum weights total ${total}%, must not exceed 100%.`;
+          }
+          if (!f.enumValues.some(v => v.value.trim() !== '')) {
+            return `Field "${f.name || 'unnamed'}": enum must have at least one value.`;
+          }
+        }
+      }
+      return null;
+    },
+
+    async generate() {
+      const error = this.validate();
+      if (error) {
+        this.statusMsg = error;
+        this.statusType = 'error';
+        return;
+      }
+
+      this.generating = true;
+      this.statusMsg = '';
+      this.statusType = '';
+
+      try {
+        const payload = this.buildPayload();
+        const response = await fetch('/v1/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({ error: 'Generation failed' }));
+          throw new Error(err.error || `HTTP ${response.status}`);
+        }
+
+        const data = await response.text();
+        const ext = this.format === 'json' ? 'json' : 'csv';
+        const mime = this.format === 'json' ? 'application/json' : 'text/csv';
+
+        const blob = new Blob([data], { type: mime });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `mockyard_data.${ext}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+
+        this.statusMsg = `Generated ${this.numRows.toLocaleString()} rows as ${ext.toUpperCase()}`;
+        this.statusType = 'success';
+      } catch (err) {
+        this.statusMsg = err.message;
+        this.statusType = 'error';
+      } finally {
+        this.generating = false;
+      }
+    },
+
+    buildPayload() {
+      return {
+        fields: this.fields.map(f => {
+          const def = {
+            name: f.name || 'unnamed',
+            type: f.type,
+            options: { blank_percentage: f.blankPct || 0 },
+          };
+          if (f.type === 'boolean') def.options.true_percentage = f.truePct;
+          if (NUMERIC_TYPES.has(f.type)) {
+            if (f.min !== null) def.options.min = f.min;
+            if (f.max !== null) def.options.max = f.max;
+          }
+          if (DECIMAL_TYPES.has(f.type)) def.options.decimals = f.decimals;
+          if (f.type === 'enum') {
+            def.options.values = f.enumValues
+              .filter(v => v.value.trim() !== '')
+              .map(v => {
+                const entry = { value: v.value };
+                if (v.weight !== null) entry.weight = v.weight;
+                return entry;
+              });
+          }
+          return def;
+        }),
+        num_rows: this.numRows,
+        format: this.format,
+      };
+    },
   };
 }
 
-async function generate() {
-  const btn = document.getElementById('btn-generate');
-  const status = document.getElementById('status');
+function makeField(config) {
+  return {
+    name: config?.name || '',
+    type: config?.type || 'first_name',
+    blankPct: config?.blankPct || 0,
+    truePct: config?.truePct ?? 50,
+    min: config?.min ?? null,
+    max: config?.max ?? null,
+    decimals: config?.decimals ?? 2,
+    enumValues: config?.enumValues
+      ? JSON.parse(JSON.stringify(config.enumValues))
+      : [{ value: '', weight: null }],
+  };
+}
 
-  if (fields.length === 0) {
-    status.textContent = 'Add at least one field.';
-    status.className = 'status error';
-    return;
-  }
-
-  btn.disabled = true;
-  btn.innerHTML = '<span class="spinner"></span> Generating...';
-  status.textContent = '';
-  status.className = 'status';
-
+function loadState() {
   try {
-    const payload = buildPayload();
-    const response = await fetch('/v1/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    });
-
-    if (!response.ok) {
-      const err = await response.json().catch(() => ({ error: 'Generation failed' }));
-      throw new Error(err.error || `HTTP ${response.status}`);
-    }
-
-    const format = payload.format;
-    const data = await response.text();
-    const ext = format === 'json' ? 'json' : 'csv';
-    const mime = format === 'json' ? 'application/json' : 'text/csv';
-
-    const blob = new Blob([data], { type: mime });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `mockyard_data.${ext}`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    status.textContent = `Generated ${payload.num_rows.toLocaleString()} rows as ${ext.toUpperCase()}`;
-    status.className = 'status success';
-  } catch (err) {
-    status.textContent = err.message;
-    status.className = 'status error';
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = `
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polygon points="5 3 19 12 5 21 5 3"/>
-      </svg>
-      Generate
-    `;
-  }
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (_) { return null; }
 }
-
-function escHtml(s) {
-  const div = document.createElement('div');
-  div.textContent = s;
-  return div.innerHTML;
-}
-
-// Initialize with default fields
-DEFAULT_FIELDS.forEach(f => addField(f));
 </script>
 
 </body>

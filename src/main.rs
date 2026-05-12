@@ -26,6 +26,16 @@ async fn serve_index() -> Response {
     }
 }
 
+async fn serve_docs() -> Response {
+    match StaticAssets::get("docs.html") {
+        Some(content) => {
+            let html = String::from_utf8_lossy(content.data.as_ref()).to_string();
+            Html(html).into_response()
+        }
+        None => (StatusCode::NOT_FOUND, "Not found").into_response(),
+    }
+}
+
 async fn serve_static(axum::extract::Path(path): axum::extract::Path<String>) -> Response {
     match StaticAssets::get(&path) {
         Some(content) => {
@@ -49,6 +59,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(serve_index))
+        .route("/docs", get(serve_docs))
         .route("/v1/generate", post(api::generate))
         .route("/static/{*path}", get(serve_static))
         .layer(CorsLayer::permissive());

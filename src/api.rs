@@ -48,6 +48,30 @@ pub async fn generate(Json(request): Json<GenerateRequest>) -> Response {
             .into_response();
     }
 
+    // Validate enum weights
+    for field in &schema.fields {
+        if matches!(field.field_type, crate::schema::FieldType::Enum) {
+            let total_weight: f64 = field
+                .options
+                .values
+                .iter()
+                .filter_map(|v| v.weight)
+                .sum();
+            if total_weight > 100.0 {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": format!(
+                            "Field \"{}\": enum weights total {}%, must not exceed 100%",
+                            field.name, total_weight
+                        )
+                    })),
+                )
+                    .into_response();
+            }
+        }
+    }
+
     let mut generator = Generator::new();
     let data = generator.generate(&schema);
 

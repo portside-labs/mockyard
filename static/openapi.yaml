@@ -1,0 +1,269 @@
+openapi: 3.1.0
+info:
+  title: Mockyard API
+  description: A fast, self-hostable mock data generator. Generate realistic test data with fine-grained control over field types, distributions, and formats.
+  version: 1.0.0
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: /
+    description: Current instance
+
+paths:
+  /v1/generate:
+    post:
+      operationId: generateMockData
+      summary: Generate mock data
+      description: |
+        Generate mock data from a schema definition. Define fields with types and options,
+        specify the number of rows, and choose an output format (CSV or JSON).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateRequest'
+            examples:
+              simple:
+                summary: Basic user data
+                value:
+                  fields:
+                    - name: id
+                      type: row_number
+                      options: {}
+                    - name: first_name
+                      type: first_name
+                      options: {}
+                    - name: email
+                      type: email
+                      options:
+                        blank_percentage: 5
+                  num_rows: 100
+                  format: csv
+              advanced:
+                summary: With enums, booleans, and number ranges
+                value:
+                  fields:
+                    - name: id
+                      type: row_number
+                      options: {}
+                    - name: name
+                      type: full_name
+                      options: {}
+                    - name: role
+                      type: enum
+                      options:
+                        values:
+                          - value: Admin
+                            weight: 5
+                          - value: Manager
+                            weight: 25
+                          - value: Viewer
+                    - name: active
+                      type: boolean
+                      options:
+                        true_percentage: 80
+                    - name: score
+                      type: integer
+                      options:
+                        min: -100
+                        max: 100
+                    - name: price
+                      type: currency
+                      options:
+                        min: 9.99
+                        max: 999.99
+                        decimals: 2
+                  num_rows: 1000
+                  format: json
+      responses:
+        '200':
+          description: Generated mock data
+          content:
+            text/csv:
+              schema:
+                type: string
+              example: |
+                id,first_name,email
+                1,Alice,alice@example.com
+                2,Bob,bob@example.net
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: true
+              example:
+                - id: 1
+                  first_name: Alice
+                  email: alice@example.com
+                - id: 2
+                  first_name: Bob
+                  email: bob@example.net
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                no_fields:
+                  value:
+                    error: At least one field is required
+                too_many_rows:
+                  value:
+                    error: num_rows must not exceed 100,000
+                enum_weights:
+                  value:
+                    error: 'Field "role": enum weights total 110%, must not exceed 100%'
+
+components:
+  schemas:
+    GenerateRequest:
+      type: object
+      required:
+        - fields
+        - num_rows
+      properties:
+        fields:
+          type: array
+          minItems: 1
+          description: List of field definitions for the schema.
+          items:
+            $ref: '#/components/schemas/FieldDefinition'
+        num_rows:
+          type: integer
+          minimum: 1
+          maximum: 100000
+          description: Number of rows to generate.
+          example: 1000
+        format:
+          type: string
+          enum: [csv, json]
+          default: csv
+          description: Output format.
+
+    FieldDefinition:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+          description: Column/field name in the output.
+          example: email
+        type:
+          $ref: '#/components/schemas/FieldType'
+        options:
+          $ref: '#/components/schemas/FieldOptions'
+
+    FieldType:
+      type: string
+      description: The type of data to generate for this field.
+      enum:
+        - row_number
+        - first_name
+        - last_name
+        - full_name
+        - email
+        - username
+        - phone
+        - city
+        - state
+        - country
+        - zip_code
+        - street_address
+        - latitude
+        - longitude
+        - company_name
+        - job_title
+        - credit_card
+        - domain_name
+        - ipv4
+        - ipv6
+        - mac_address
+        - user_agent
+        - uuid
+        - color
+        - hex_color
+        - date
+        - date_time
+        - time
+        - paragraph
+        - sentence
+        - word
+        - integer
+        - decimal
+        - boolean
+        - enum
+        - percentage
+        - currency
+
+    FieldOptions:
+      type: object
+      description: |
+        Options that control how field values are generated. Which options apply
+        depends on the field type.
+      properties:
+        blank_percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 0
+          description: Percentage of values that should be null/blank (0–100). Applies to all types.
+        true_percentage:
+          type: number
+          minimum: 0
+          maximum: 100
+          default: 50
+          description: Percentage of values that should be `true` (0–100). Only applies to `boolean`.
+        min:
+          type: number
+          description: Minimum value (inclusive). Applies to `integer`, `decimal`, `percentage`, `currency`. Supports negative numbers.
+          example: -100
+        max:
+          type: number
+          description: Maximum value (inclusive). Applies to `integer`, `decimal`, `percentage`, `currency`. Supports negative numbers.
+          example: 100
+        decimals:
+          type: integer
+          minimum: 0
+          maximum: 10
+          default: 2
+          description: Number of decimal places. Applies to `decimal` and `currency`.
+        values:
+          type: array
+          description: |
+            List of possible values with optional weight percentages. Applies to `enum`.
+            If weights don't sum to 100%, the remaining weight is distributed equally
+            among values without an explicit weight. Total weights must not exceed 100%.
+          items:
+            $ref: '#/components/schemas/EnumValue'
+
+    EnumValue:
+      type: object
+      required:
+        - value
+      properties:
+        value:
+          type: string
+          description: The enum value string.
+          example: Admin
+        weight:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: Weight as a percentage (0–100). If omitted, the remaining weight is split equally among all unweighted values.
+          example: 25
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.

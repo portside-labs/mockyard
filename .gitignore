@@ -1,2 +1,6 @@
 /target
 .mcp.json
+.DS_Store
+*.swp
+*.swo
+*~

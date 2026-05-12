@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mockyard API Docs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/js-yaml@4/dist/js-yaml.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root {
+  --bg-deep: #0a0a0c;
+  --bg-surface: #111114;
+  --bg-raised: #18181c;
+  --bg-input: #1e1e24;
+  --border: #2a2a34;
+  --border-focus: #4a4a5a;
+  --text-primary: #e8e8ed;
+  --text-secondary: #8888a0;
+  --text-muted: #55556a;
+  --accent: #c8f76f;
+  --accent-dim: #a5cc5a;
+  --accent-glow: rgba(200, 247, 111, 0.08);
+  --danger: #f76f6f;
+  --radius: 6px;
+  --radius-lg: 10px;
+  --mono: 'JetBrains Mono', monospace;
+  --sans: 'DM Sans', sans-serif;
+  --transition: 150ms ease;
+}
+
+html { font-size: 14px; }
+
+body {
+  font-family: var(--sans);
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Header ── */
+.header {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.logo-icon {
+  width: 26px;
+  height: 26px;
+  background: var(--accent);
+  border-radius: 5px;
+  display: grid;
+  place-items: center;
+}
+
+.logo-icon svg { width: 16px; height: 16px; }
+.logo .accent { color: var(--accent); }
+
+.header-links {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.header-link {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  transition: color var(--transition);
+}
+
+.header-link:hover { color: var(--accent); }
+.header-link.active { color: var(--accent); }
+
+/* ── Main ── */
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 4rem;
+}
+
+/* ── Page Header ── */
+.page-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 0.4rem;
+}
+
+.page-desc {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.page-meta {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  margin-bottom: 2.5rem;
+}
+
+.badge {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  letter-spacing: 0.02em;
+}
+
+.badge-version { background: var(--accent); color: var(--bg-deep); }
+.badge-license { background: var(--bg-raised); color: var(--text-secondary); border: 1px solid var(--border); }
+
+/* ── Endpoint Card ── */
+.endpoint {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 2rem;
+  overflow: hidden;
+}
+
+.endpoint-header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.endpoint-header:hover { background: var(--bg-raised); }
+
+.method {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+
+.endpoint-path {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.endpoint-summary {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  margin-left: auto;
+}
+
+.endpoint-body {
+  padding: 1.25rem;
+}
+
+.endpoint-desc {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.6;
+  margin-bottom: 1.5rem;
+}
+
+/* ── Section Titles ── */
+.section-title {
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+/* ── Code Blocks ── */
+.code-block {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  margin-bottom: 1.5rem;
+  position: relative;
+}
+
+.code-block pre {
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre;
+  margin: 0;
+}
+
+.code-block .copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-muted);
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.code-block .copy-btn:hover { color: var(--accent); border-color: var(--accent-dim); }
+
+/* ── Example Tabs ── */
+.example-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 0;
+}
+
+.example-tab {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.example-tab:first-child { border-radius: var(--radius) 0 0 0; }
+.example-tab:last-child { border-radius: 0 var(--radius) 0 0; }
+.example-tab.active { background: var(--bg-deep); color: var(--accent); border-bottom-color: var(--bg-deep); }
+.example-tab:hover:not(.active) { color: var(--text-secondary); }
+
+.example-tabs + .code-block { border-radius: 0 var(--radius) var(--radius) var(--radius); }
+
+/* ── Properties Table ── */
+.props-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.5rem;
+}
+
+.props-table th {
+  font-family: var(--mono);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.props-table td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(42, 42, 52, 0.5);
+  vertical-align: top;
+  font-size: 0.88rem;
+}
+
+.props-table tr:last-child td { border-bottom: none; }
+.props-table tr:hover td { background: rgba(255,255,255,0.01); }
+
+.prop-name {
+  font-family: var(--mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.prop-required {
+  color: var(--danger);
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.4rem;
+}
+
+.prop-type {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.prop-constraint {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-left: 0.4rem;
+}
+
+.prop-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.prop-default {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.prop-enum-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.4rem;
+}
+
+.enum-chip {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.15rem 0.45rem;
+  color: var(--text-secondary);
+}
+
+/* ── Responses ── */
+.response-block {
+  margin-bottom: 1rem;
+}
+
+.response-status {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+
+.status-code {
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+}
+
+.status-2xx { background: rgba(200, 247, 111, 0.12); color: var(--accent); }
+.status-4xx { background: rgba(247, 111, 111, 0.12); color: var(--danger); }
+
+.response-desc {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+/* ── Schema Ref Links ── */
+.schema-ref {
+  font-family: var(--mono);
+  font-size: 0.82rem;
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--accent-dim);
+}
+
+.schema-ref:hover { color: #d4ff7a; }
+
+/* ── Schema Sections ── */
+.schema-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+  overflow: hidden;
+}
+
+.schema-card-header {
+  padding: 0.75rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+
+.schema-card-header:hover { background: var(--bg-raised); }
+
+.schema-card-name {
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.schema-card-type {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.schema-card-body { padding: 1rem 1.25rem; }
+
+.schema-card-desc {
+  color: var(--text-secondary);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  margin-bottom: 1rem;
+}
+
+/* ── Expand/Collapse ── */
+.chevron {
+  display: inline-block;
+  transition: transform var(--transition);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-left: auto;
+}
+
+.chevron.open { transform: rotate(90deg); }
+
+/* ── Try It ── */
+.try-it {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.try-it-title {
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.try-it textarea {
+  width: 100%;
+  min-height: 200px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
+  padding: 1rem;
+  resize: vertical;
+  outline: none;
+}
+
+.try-it textarea:focus { border-color: var(--accent-dim); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+.try-it-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.btn-send {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 0.82rem;
+  background: var(--accent);
+  color: var(--bg-deep);
+  border: none;
+  border-radius: var(--radius);
+  padding: 0.55rem 1.2rem;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+
+.btn-send:hover { background: #d4ff7a; }
+.btn-send:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.try-it-status {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+}
+
+.try-it-response {
+  margin-top: 0.75rem;
+}
+
+.try-it-response pre {
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  line-height: 1.6;
+  color: var(--text-primary);
+  max-height: 300px;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* ── Responsive ── */
+@media (max-width: 800px) {
+  .endpoint-summary { display: none; }
+  .props-table { font-size: 0.82rem; }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-inner">
+    <a href="/" class="logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="3" width="7" height="7" rx="1"/>
+          <rect x="14" y="3" width="7" height="7" rx="1"/>
+          <rect x="3" y="14" width="7" height="7" rx="1"/>
+          <rect x="14" y="14" width="7" height="7" rx="1"/>
+        </svg>
+      </div><span>mock<span class="accent">yard</span></span>
+    </a>
+    <div class="header-links">
+      <a href="/" class="header-link">Generator</a>
+      <a href="/docs" class="header-link active">API Docs</a>
+    </div>
+  </div>
+</header>
+
+<main class="main" x-data="apiDocs()" x-init="init()">
+  <!-- Page header -->
+  <h1 class="page-title" x-text="spec?.info?.title || 'API Docs'"></h1>
+  <p class="page-desc" x-text="spec?.info?.description || ''"></p>
+  <div class="page-meta">
+    <span class="badge badge-version" x-text="'v' + (spec?.info?.version || '')"></span>
+    <template x-if="spec?.info?.license">
+      <span class="badge badge-license" x-text="spec.info.license.name"></span>
+    </template>
+  </div>
+
+  <!-- Endpoints -->
+  <template x-for="ep in endpoints" :key="ep.id">
+    <div class="endpoint">
+      <div class="endpoint-header" @click="ep.open = !ep.open">
+        <span class="method" x-text="ep.method"></span>
+        <span class="endpoint-path" x-text="ep.path"></span>
+        <span class="endpoint-summary" x-text="ep.summary"></span>
+        <span class="chevron" :class="ep.open && 'open'">&#9654;</span>
+      </div>
+      <div class="endpoint-body" x-show="ep.open" x-collapse.duration.200ms>
+        <p class="endpoint-desc" x-text="ep.description"></p>
+
+        <!-- Request Body Schema -->
+        <template x-if="ep.requestSchema">
+          <div>
+            <div class="section-title">Request Body</div>
+            <template x-for="schema in ep.requestSchemas" :key="schema.name">
+              <div style="margin-bottom: 1.25rem;">
+                <div style="font-family:var(--mono);font-size:0.82rem;color:var(--accent);margin-bottom:0.6rem" x-text="schema.name"></div>
+                <template x-if="schema.description">
+                  <p class="prop-desc" style="margin-bottom:0.6rem" x-text="schema.description"></p>
+                </template>
+                <table class="props-table" x-show="schema.properties.length > 0">
+                  <thead>
+                    <tr>
+                      <th style="width:25%">Property</th>
+                      <th style="width:20%">Type</th>
+                      <th>Description</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="prop in schema.properties" :key="prop.name">
+                      <tr>
+                        <td>
+                          <span class="prop-name" x-text="prop.name"></span>
+                          <span class="prop-required" x-show="prop.required">required</span>
+                        </td>
+                        <td>
+                          <span class="prop-type" x-text="prop.type"></span>
+                          <template x-if="prop.constraints">
+                            <span class="prop-constraint" x-text="prop.constraints"></span>
+                          </template>
+                        </td>
+                        <td>
+                          <span class="prop-desc" x-text="prop.description"></span>
+                          <template x-if="prop.default !== undefined">
+                            <span class="prop-default" x-text="'  Default: ' + prop.default"></span>
+                          </template>
+                          <template x-if="prop.enumValues && prop.enumValues.length > 0">
+                            <div class="prop-enum-values">
+                              <template x-for="v in prop.enumValues" :key="v">
+                                <span class="enum-chip" x-text="v"></span>
+                              </template>
+                            </div>
+                          </template>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Examples -->
+        <template x-if="ep.examples.length > 0">
+          <div>
+            <div class="section-title">Examples</div>
+            <div class="example-tabs">
+              <template x-for="(ex, ei) in ep.examples" :key="ei">
+                <button class="example-tab" :class="ep.activeExample === ei && 'active'"
+                        @click="ep.activeExample = ei" x-text="ex.summary"></button>
+              </template>
+            </div>
+            <div class="code-block">
+              <button class="copy-btn" @click="copyText(JSON.stringify(ep.examples[ep.activeExample].value, null, 2))">copy</button>
+              <pre x-text="JSON.stringify(ep.examples[ep.activeExample].value, null, 2)"></pre>
+            </div>
+          </div>
+        </template>
+
+        <!-- Responses -->
+        <div class="section-title">Responses</div>
+        <template x-for="resp in ep.responses" :key="resp.code">
+          <div class="response-block">
+            <div class="response-status">
+              <span class="status-code" :class="resp.code.startsWith('2') ? 'status-2xx' : 'status-4xx'"
+                    x-text="resp.code"></span>
+              <span class="response-desc" x-text="resp.description"></span>
+            </div>
+            <template x-if="resp.example">
+              <div class="code-block" style="margin-top:0.5rem">
+                <pre x-text="typeof resp.example === 'string' ? resp.example : JSON.stringify(resp.example, null, 2)"></pre>
+              </div>
+            </template>
+          </div>
+        </template>
+
+        <!-- Try It -->
+        <div class="try-it">
+          <div class="try-it-title">Try it</div>
+          <textarea x-model="ep.tryBody" spellcheck="false"></textarea>
+          <div class="try-it-actions">
+            <button class="btn-send" :disabled="ep.sending" @click="sendRequest(ep)">
+              <span x-text="ep.sending ? 'Sending...' : 'Send Request'"></span>
+            </button>
+            <template x-if="ep.tryStatus">
+              <span class="try-it-status" :style="ep.tryOk ? 'color:var(--accent)' : 'color:var(--danger)'"
+                    x-text="ep.tryStatus"></span>
+            </template>
+          </div>
+          <template x-if="ep.tryResponse !== null">
+            <div class="try-it-response">
+              <pre x-text="ep.tryResponse"></pre>
+            </div>
+          </template>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- Schemas -->
+  <h2 style="font-size:1.2rem;font-weight:700;margin:2.5rem 0 1rem">Schemas</h2>
+  <template x-for="schema in schemas" :key="schema.name">
+    <div class="schema-card">
+      <div class="schema-card-header" @click="schema.open = !schema.open">
+        <span class="schema-card-name" x-text="schema.name"></span>
+        <span class="schema-card-type" x-text="schema.type"></span>
+        <span class="chevron" :class="schema.open && 'open'">&#9654;</span>
+      </div>
+      <div class="schema-card-body" x-show="schema.open" x-collapse.duration.200ms>
+        <template x-if="schema.description">
+          <p class="schema-card-desc" x-text="schema.description"></p>
+        </template>
+        <table class="props-table" x-show="schema.properties.length > 0">
+          <thead>
+            <tr>
+              <th style="width:25%">Property</th>
+              <th style="width:20%">Type</th>
+              <th>Description</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="prop in schema.properties" :key="prop.name">
+              <tr>
+                <td>
+                  <span class="prop-name" x-text="prop.name"></span>
+                  <span class="prop-required" x-show="prop.required">required</span>
+                </td>
+                <td>
+                  <span class="prop-type" x-text="prop.type"></span>
+                  <template x-if="prop.constraints">
+                    <span class="prop-constraint" x-text="prop.constraints"></span>
+                  </template>
+                </td>
+                <td>
+                  <span class="prop-desc" x-text="prop.description"></span>
+                  <template x-if="prop.default !== undefined">
+                    <span class="prop-default" x-text="'  Default: ' + prop.default"></span>
+                  </template>
+                  <template x-if="prop.enumValues && prop.enumValues.length > 0">
+                    <div class="prop-enum-values">
+                      <template x-for="v in prop.enumValues" :key="v">
+                        <span class="enum-chip" x-text="v"></span>
+                      </template>
+                    </div>
+                  </template>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </template>
+</main>
+
+<script>
+function apiDocs() {
+  return {
+    spec: null,
+    endpoints: [],
+    schemas: [],
+
+    async init() {
+      const resp = await fetch('/static/openapi.yaml');
+      const text = await resp.text();
+      this.spec = jsyaml.load(text);
+      this.endpoints = this.parseEndpoints();
+      this.schemas = this.parseSchemas();
+    },
+
+    resolveRef(ref) {
+      if (!ref || !ref.startsWith('#/')) return null;
+      const parts = ref.replace('#/', '').split('/');
+      let obj = this.spec;
+      for (const p of parts) obj = obj?.[p];
+      return obj;
+    },
+
+    resolveSchema(schema) {
+      if (!schema) return schema;
+      if (schema.$ref) return this.resolveRef(schema.$ref);
+      return schema;
+    },
+
+    getTypeName(schema) {
+      if (!schema) return '';
+      if (schema.$ref) {
+        const name = schema.$ref.split('/').pop();
+        return name;
+      }
+      if (schema.type === 'array') {
+        if (schema.items?.$ref) return schema.items.$ref.split('/').pop() + '[]';
+        return (schema.items?.type || 'any') + '[]';
+      }
+      return schema.type || '';
+    },
+
+    buildConstraints(prop) {
+      const parts = [];
+      if (prop.minimum !== undefined) parts.push('>=' + prop.minimum);
+      if (prop.maximum !== undefined) parts.push('<=' + prop.maximum);
+      if (prop.minItems !== undefined) parts.push('min ' + prop.minItems);
+      return parts.length > 0 ? parts.join(', ') : null;
+    },
+
+    extractProperties(schemaObj) {
+      const resolved = this.resolveSchema(schemaObj);
+      if (!resolved?.properties) return [];
+      const required = new Set(resolved.required || []);
+      return Object.entries(resolved.properties).map(([name, prop]) => {
+        const p = this.resolveSchema(prop);
+        return {
+          name,
+          type: this.getTypeName(prop),
+          description: p?.description || '',
+          required: required.has(name),
+          default: p?.default,
+          constraints: this.buildConstraints(p),
+          enumValues: p?.enum || null,
+        };
+      });
+    },
+
+    flattenRequestSchemas(schemaRef) {
+      const resolved = this.resolveSchema(schemaRef);
+      if (!resolved) return [];
+      const result = [];
+      const name = schemaRef?.$ref ? schemaRef.$ref.split('/').pop() : 'Request';
+      result.push({
+        name,
+        description: resolved.description || '',
+        properties: this.extractProperties(schemaRef),
+      });
+      // Also add nested referenced schemas
+      if (resolved.properties) {
+        for (const [, prop] of Object.entries(resolved.properties)) {
+          let target = prop;
+          if (prop.type === 'array' && prop.items) target = prop.items;
+          if (target.$ref) {
+            const nested = this.resolveRef(target.$ref);
+            if (nested?.properties) {
+              result.push({
+                name: target.$ref.split('/').pop(),
+                description: nested.description || '',
+                properties: this.extractProperties(target),
+              });
+            }
+          }
+        }
+      }
+      return result;
+    },
+
+    parseEndpoints() {
+      if (!this.spec?.paths) return [];
+      const eps = [];
+      for (const [path, methods] of Object.entries(this.spec.paths)) {
+        for (const [method, op] of Object.entries(methods)) {
+          const reqContent = op.requestBody?.content?.['application/json'];
+          const examples = [];
+          if (reqContent?.examples) {
+            for (const [, ex] of Object.entries(reqContent.examples)) {
+              examples.push({ summary: ex.summary || 'Example', value: ex.value });
+            }
+          }
+
+          const responses = [];
+          if (op.responses) {
+            for (const [code, resp] of Object.entries(op.responses)) {
+              let example = null;
+              if (resp.content) {
+                for (const [, media] of Object.entries(resp.content)) {
+                  if (media.example) { example = media.example; break; }
+                  if (media.examples) {
+                    const first = Object.values(media.examples)[0];
+                    if (first?.value) { example = first.value; break; }
+                  }
+                }
+              }
+              responses.push({ code, description: resp.description || '', example });
+            }
+          }
+
+          eps.push({
+            id: method + ':' + path,
+            method: method.toUpperCase(),
+            path,
+            summary: op.summary || '',
+            description: op.description || '',
+            open: true,
+            requestSchema: reqContent?.schema || null,
+            requestSchemas: this.flattenRequestSchemas(reqContent?.schema),
+            examples,
+            activeExample: 0,
+            responses,
+            tryBody: examples.length > 0 ? JSON.stringify(examples[0].value, null, 2) : '{}',
+            sending: false,
+            tryStatus: null,
+            tryOk: false,
+            tryResponse: null,
+          });
+        }
+      }
+      return eps;
+    },
+
+    parseSchemas() {
+      if (!this.spec?.components?.schemas) return [];
+      return Object.entries(this.spec.components.schemas).map(([name, schema]) => ({
+        name,
+        type: schema.type || '',
+        description: schema.description || '',
+        open: false,
+        properties: this.extractProperties({ $ref: '#/components/schemas/' + name }),
+      }));
+    },
+
+    async sendRequest(ep) {
+      ep.sending = true;
+      ep.tryStatus = null;
+      ep.tryResponse = null;
+      try {
+        let body;
+        try { body = JSON.parse(ep.tryBody); } catch { throw new Error('Invalid JSON in request body'); }
+        const resp = await fetch(ep.path, {
+          method: ep.method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        const text = await resp.text();
+        ep.tryOk = resp.ok;
+        ep.tryStatus = resp.status + ' ' + resp.statusText;
+        try { ep.tryResponse = JSON.stringify(JSON.parse(text), null, 2); }
+        catch { ep.tryResponse = text; }
+      } catch (err) {
+        ep.tryOk = false;
+        ep.tryStatus = 'Error';
+        ep.tryResponse = err.message;
+      } finally {
+        ep.sending = false;
+      }
+    },
+
+    copyText(text) {
+      navigator.clipboard.writeText(text);
+    },
+  };
+}
+</script>
+
+</body>
+</html>
