@@ -108,10 +108,10 @@ jobs:
           IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
           IMAGE_LC=$(echo "$IMAGE" | tr '[:upper:]' '[:lower:]')
 
-          TAGS="${IMAGE_LC}:latest,${IMAGE_LC}:sha-${GITHUB_SHA::7}"
+          TAGS="${IMAGE_LC}:sha-${GITHUB_SHA::7}"
 
           if [ "$TAG_EXISTS" = "false" ]; then
-            TAGS="${TAGS},${IMAGE_LC}:${VERSION}"
+            TAGS="${TAGS},${IMAGE_LC}:${VERSION},${IMAGE_LC}:latest"
           fi
 
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
