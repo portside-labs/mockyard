@@ -645,6 +645,8 @@ dependencies = [
  "chrono",
  "csv",
  "fake",
+ "http-body-util",
+ "hyper",
  "mime_guess",
  "rand",
  "rust-embed",

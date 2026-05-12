@@ -2,5 +2,4 @@ target/
 .git/
 .gitignore
 README.md
-docker-compose.yml
 .mcp.json

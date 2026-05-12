@@ -1,50 +1,19 @@
 # Mockyard
 
-A fast, self-hostable mock data generator written in Rust. An open-source alternative to [Mockaroo](https://mockaroo.com).
+A fast, self-hostable mock data generator. Open-source alternative to [Mockaroo](https://mockaroo.com).
 
-## Features
+Built with Rust for speed and low memory usage. Includes a web UI and a REST API. Generates CSV or JSON.
 
-- **Fast** — built with Rust and Axum for high-throughput data generation
-- **Self-hostable** — single binary, Docker-ready, runs on Cloud Run / AWS Lambda
-- **Web UI** — reactive schema builder powered by Alpine.js with localStorage persistence
-- **REST API** — versioned endpoint (`POST /v1/generate`) with full [OpenAPI 3.1 spec](/static/openapi.yaml)
-- **Interactive API docs** — built-in docs page with try-it-out at `/docs`
-- **CSV & JSON export** — download generated data in either format
-- **35+ field types** — names, emails, addresses, phone numbers, IPs, UUIDs, dates, credit cards, and more
-- **Fine-grained control** — null/blank percentages, boolean true/false distributions, weighted enum values, number ranges with negative support, decimal precision
-
-## Quick Start
-
-### Run locally
+## Run it
 
 ```bash
-cargo run
-# Open http://localhost:8080
-```
-
-### Docker
-
-```bash
-docker compose up
-
-# or build and run manually
 docker build -t mockyard .
 docker run -p 8080:8080 mockyard
 ```
 
-### Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `PORT`   | `8080`  | Server listen port |
+Open [http://localhost:8080](http://localhost:8080) to use the UI, or [http://localhost:8080/docs](http://localhost:8080/docs) for API docs.
 
 ## API
-
-Full interactive documentation is available at `/docs` when the server is running. The OpenAPI spec is at `/static/openapi.yaml`.
-
-### `POST /v1/generate`
-
-Generate mock data from a schema definition.
 
 ```bash
 curl -X POST http://localhost:8080/v1/generate \
@@ -69,75 +38,42 @@ curl -X POST http://localhost:8080/v1/generate \
   }'
 ```
 
-### Field Types
+Full interactive API docs with a try-it-out panel are available at `/docs`. The [OpenAPI 3.1 spec](static/openapi.yaml) is included.
 
-| Type | Description | Options |
-|------|-------------|---------|
-| `row_number` | Sequential row number | — |
-| `first_name` | First name | — |
-| `last_name` | Last name | — |
-| `full_name` | Full name | — |
-| `email` | Email address | — |
-| `username` | Username | — |
-| `phone` | Phone number | — |
-| `city` | City name | — |
-| `state` | US state | — |
-| `country` | Country name | — |
-| `zip_code` | Zip code | — |
-| `street_address` | Street address | — |
-| `latitude` | Latitude coordinate | — |
-| `longitude` | Longitude coordinate | — |
-| `company_name` | Company name | — |
-| `job_title` | Job title | — |
-| `credit_card` | Credit card number | — |
-| `domain_name` | Domain name | — |
-| `ipv4` | IPv4 address | — |
-| `ipv6` | IPv6 address | — |
-| `mac_address` | MAC address | — |
-| `user_agent` | Browser user agent | — |
-| `uuid` | UUID v4 | — |
-| `color` | Color name | — |
-| `hex_color` | Hex color code | — |
-| `date` | Date (YYYY-MM-DD) | — |
-| `date_time` | DateTime (ISO 8601) | — |
-| `time` | Time (HH:MM:SS) | — |
-| `paragraph` | Lorem ipsum paragraph | — |
-| `sentence` | Lorem ipsum sentence | — |
-| `word` | Random word | — |
-| `integer` | Integer | `min`, `max` |
-| `decimal` | Decimal number | `min`, `max`, `decimals` |
-| `boolean` | Boolean | `true_percentage` |
-| `enum` | Enum from fixed values | `values` (with optional `weight`) |
-| `percentage` | Percentage | `min`, `max`, `decimals` |
-| `currency` | Currency amount | `min`, `max`, `decimals` |
+## Field Types
 
-### Field Options (all types)
+35+ types across these categories:
 
-| Option | Type | Description |
-|--------|------|-------------|
-| `blank_percentage` | `number` | Percentage of values that should be null/blank (0–100) |
+| Category | Types |
+|----------|-------|
+| Person | `first_name`, `last_name`, `full_name`, `email`, `username`, `phone` |
+| Address | `city`, `state`, `country`, `zip_code`, `street_address`, `latitude`, `longitude` |
+| Business | `company_name`, `job_title`, `credit_card` |
+| Internet | `domain_name`, `ipv4`, `ipv6`, `mac_address`, `user_agent` |
+| Date & Time | `date`, `date_time`, `time` |
+| Text | `paragraph`, `sentence`, `word` |
+| Number | `integer`, `decimal`, `percentage`, `currency` |
+| Basic | `row_number`, `uuid`, `color`, `hex_color`, `boolean`, `enum` |
 
-## Deployment
+## Field Options
 
-### Cloud Run
+Every field supports `blank_percentage` (0-100) to control how often a value is null.
+
+Type-specific options:
+
+| Option | Applies to | Description |
+|--------|-----------|-------------|
+| `min`, `max` | `integer`, `decimal`, `percentage`, `currency` | Number range (supports negatives) |
+| `decimals` | `decimal`, `currency` | Decimal places (default: 2) |
+| `true_percentage` | `boolean` | % of values that are `true` (default: 50) |
+| `values` | `enum` | List of `{ "value": "...", "weight": N }` entries. Weights are percentages. Unweighted values split the remainder equally. |
+
+## Contributing
 
 ```bash
-gcloud run deploy mockyard \
-  --source . \
-  --port 8080 \
-  --allow-unauthenticated
+cargo run            # start dev server on :8080
+cargo test           # run tests
 ```
-
-### AWS Lambda
-
-Use [cargo-lambda](https://www.cargo-lambda.info/) or deploy the Docker image with Lambda container image support.
-
-## Tech Stack
-
-- **Rust** with [Axum](https://github.com/tokio-rs/axum) for the HTTP server
-- **[fake](https://crates.io/crates/fake)** crate for data generation
-- **[Alpine.js](https://alpinejs.dev/)** for the reactive frontend
-- **[rust-embed](https://crates.io/crates/rust-embed)** to bundle static assets into the binary
 
 ## License
 

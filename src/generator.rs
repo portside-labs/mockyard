@@ -256,3 +256,605 @@ impl GeneratedData {
         serde_json::to_string_pretty(&rows)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::schema::*;
+
+    fn make_field(name: &str, field_type: FieldType) -> FieldDefinition {
+        FieldDefinition {
+            name: name.to_string(),
+            field_type,
+            options: FieldOptions::default(),
+        }
+    }
+
+    fn make_field_with_opts(name: &str, field_type: FieldType, options: FieldOptions) -> FieldDefinition {
+        FieldDefinition {
+            name: name.to_string(),
+            field_type,
+            options,
+        }
+    }
+
+    fn make_schema(fields: Vec<FieldDefinition>, num_rows: usize) -> Schema {
+        Schema {
+            fields,
+            num_rows,
+            format: OutputFormat::Json,
+        }
+    }
+
+    fn generate_values(field: &FieldDefinition, count: usize) -> Vec<serde_json::Value> {
+        let schema = make_schema(vec![field.clone()], count);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        data.rows.into_iter().map(|r| r[&field.name].clone()).collect()
+    }
+
+    // ── Row Number ──
+
+    #[test]
+    fn row_number_is_sequential() {
+        let field = make_field("id", FieldType::RowNumber);
+        let values = generate_values(&field, 5);
+        for (i, v) in values.iter().enumerate() {
+            assert_eq!(v.as_u64().unwrap(), (i + 1) as u64);
+        }
+    }
+
+    // ── String Field Types ──
+
+    #[test]
+    fn string_types_produce_non_empty_strings() {
+        let types = vec![
+            FieldType::FirstName, FieldType::LastName, FieldType::FullName,
+            FieldType::Email, FieldType::Username, FieldType::Phone,
+            FieldType::City, FieldType::State, FieldType::Country,
+            FieldType::ZipCode, FieldType::StreetAddress,
+            FieldType::CompanyName, FieldType::JobTitle, FieldType::CreditCard,
+            FieldType::DomainName, FieldType::Ipv4, FieldType::Ipv6,
+            FieldType::MacAddress, FieldType::UserAgent, FieldType::Uuid,
+            FieldType::Color, FieldType::HexColor,
+            FieldType::Date, FieldType::DateTime, FieldType::Time,
+            FieldType::Paragraph, FieldType::Sentence, FieldType::Word,
+        ];
+        for ft in types {
+            let field = make_field("test", ft.clone());
+            let values = generate_values(&field, 3);
+            for v in &values {
+                assert!(v.is_string(), "Expected string for {:?}, got {:?}", ft, v);
+                assert!(!v.as_str().unwrap().is_empty(), "Empty string for {:?}", ft);
+            }
+        }
+    }
+
+    // ── Email format ──
+
+    #[test]
+    fn email_contains_at_sign() {
+        let field = make_field("email", FieldType::Email);
+        let values = generate_values(&field, 20);
+        for v in &values {
+            assert!(v.as_str().unwrap().contains('@'), "Email missing @: {}", v);
+        }
+    }
+
+    // ── UUID format ──
+
+    #[test]
+    fn uuid_is_valid_format() {
+        let field = make_field("id", FieldType::Uuid);
+        let values = generate_values(&field, 10);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(uuid::Uuid::parse_str(s).is_ok(), "Invalid UUID: {}", s);
+        }
+    }
+
+    // ── Hex Color format ──
+
+    #[test]
+    fn hex_color_format() {
+        let field = make_field("c", FieldType::HexColor);
+        let values = generate_values(&field, 20);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(s.starts_with('#'), "Hex color should start with #: {}", s);
+            assert_eq!(s.len(), 7, "Hex color should be 7 chars: {}", s);
+            assert!(u32::from_str_radix(&s[1..], 16).is_ok(), "Invalid hex: {}", s);
+        }
+    }
+
+    // ── Date/Time formats ──
+
+    #[test]
+    fn date_format_yyyy_mm_dd() {
+        let field = make_field("d", FieldType::Date);
+        let values = generate_values(&field, 10);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(chrono::NaiveDate::parse_from_str(s, "%Y-%m-%d").is_ok(),
+                "Invalid date format: {}", s);
+        }
+    }
+
+    #[test]
+    fn datetime_format_iso8601() {
+        let field = make_field("dt", FieldType::DateTime);
+        let values = generate_values(&field, 10);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(s.ends_with('Z'), "DateTime should end with Z: {}", s);
+            assert!(s.contains('T'), "DateTime should contain T: {}", s);
+        }
+    }
+
+    #[test]
+    fn time_format_hh_mm_ss() {
+        let field = make_field("t", FieldType::Time);
+        let values = generate_values(&field, 10);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(chrono::NaiveTime::parse_from_str(s, "%H:%M:%S").is_ok(),
+                "Invalid time format: {}", s);
+        }
+    }
+
+    // ── Latitude / Longitude ──
+
+    #[test]
+    fn latitude_in_range() {
+        let field = make_field("lat", FieldType::Latitude);
+        let values = generate_values(&field, 50);
+        for v in &values {
+            let n = v.as_f64().unwrap();
+            assert!((-90.0..=90.0).contains(&n), "Latitude out of range: {}", n);
+        }
+    }
+
+    #[test]
+    fn longitude_is_number() {
+        let field = make_field("lng", FieldType::Longitude);
+        let values = generate_values(&field, 50);
+        for v in &values {
+            assert!(v.is_f64() || v.is_i64(), "Longitude should be a number: {:?}", v);
+        }
+    }
+
+    // ── Integer ──
+
+    #[test]
+    fn integer_defaults() {
+        let field = make_field("n", FieldType::Integer);
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let n = v.as_i64().unwrap();
+            assert!((0..=10000).contains(&n), "Integer out of default range: {}", n);
+        }
+    }
+
+    #[test]
+    fn integer_with_range() {
+        let field = make_field_with_opts("n", FieldType::Integer, FieldOptions {
+            min: Some(-50.0),
+            max: Some(50.0),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 200);
+        for v in &values {
+            let n = v.as_i64().unwrap();
+            assert!((-50..=50).contains(&n), "Integer out of specified range: {}", n);
+        }
+    }
+
+    #[test]
+    fn integer_negative_range() {
+        let field = make_field_with_opts("n", FieldType::Integer, FieldOptions {
+            min: Some(-1000.0),
+            max: Some(-1.0),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let n = v.as_i64().unwrap();
+            assert!((-1000..=-1).contains(&n), "Not in negative range: {}", n);
+        }
+    }
+
+    // ── Decimal ──
+
+    #[test]
+    fn decimal_respects_range() {
+        let field = make_field_with_opts("d", FieldType::Decimal, FieldOptions {
+            min: Some(1.0),
+            max: Some(10.0),
+            decimals: Some(3),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let n = v.as_f64().unwrap();
+            assert!((1.0..=10.0).contains(&n), "Decimal out of range: {}", n);
+        }
+    }
+
+    #[test]
+    fn decimal_precision() {
+        let field = make_field_with_opts("d", FieldType::Decimal, FieldOptions {
+            min: Some(0.0),
+            max: Some(1.0),
+            decimals: Some(2),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let s = v.to_string();
+            if let Some(dot_pos) = s.find('.') {
+                let decimal_digits = s.len() - dot_pos - 1;
+                assert!(decimal_digits <= 2, "Too many decimals in {}", s);
+            }
+        }
+    }
+
+    // ── Percentage ──
+
+    #[test]
+    fn percentage_defaults_0_to_100() {
+        let field = make_field("pct", FieldType::Percentage);
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let n = v.as_f64().unwrap();
+            assert!((0.0..=100.0).contains(&n), "Percentage out of default range: {}", n);
+        }
+    }
+
+    // ── Currency ──
+
+    #[test]
+    fn currency_defaults() {
+        let field = make_field("price", FieldType::Currency);
+        let values = generate_values(&field, 100);
+        for v in &values {
+            let n = v.as_f64().unwrap();
+            assert!((0.0..=10000.0).contains(&n), "Currency out of default range: {}", n);
+        }
+    }
+
+    // ── Boolean ──
+
+    #[test]
+    fn boolean_default_distribution() {
+        let field = make_field("active", FieldType::Boolean);
+        let values = generate_values(&field, 1000);
+        let true_count = values.iter().filter(|v| v.as_bool() == Some(true)).count();
+        // With 50% default, expect roughly 400-600 out of 1000
+        assert!(true_count > 350 && true_count < 650,
+            "Boolean default 50% produced {} trues out of 1000", true_count);
+    }
+
+    #[test]
+    fn boolean_skewed_distribution() {
+        let field = make_field_with_opts("active", FieldType::Boolean, FieldOptions {
+            true_percentage: Some(90.0),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 1000);
+        let true_count = values.iter().filter(|v| v.as_bool() == Some(true)).count();
+        assert!(true_count > 800, "90% true_percentage produced only {} trues", true_count);
+    }
+
+    #[test]
+    fn boolean_always_false() {
+        let field = make_field_with_opts("b", FieldType::Boolean, FieldOptions {
+            true_percentage: Some(0.0),
+            ..Default::default()
+        });
+        let values = generate_values(&field, 100);
+        for v in &values {
+            assert_eq!(v.as_bool(), Some(false));
+        }
+    }
+
+    // ── Enum ──
+
+    #[test]
+    fn enum_empty_values_returns_null() {
+        let field = make_field_with_opts("e", FieldType::Enum, FieldOptions {
+            values: vec![],
+            ..Default::default()
+        });
+        let values = generate_values(&field, 10);
+        for v in &values {
+            assert!(v.is_null(), "Empty enum should produce null, got {:?}", v);
+        }
+    }
+
+    #[test]
+    fn enum_single_value_always_selected() {
+        let field = make_field_with_opts("e", FieldType::Enum, FieldOptions {
+            values: vec![EnumValue { value: "Only".into(), weight: None }],
+            ..Default::default()
+        });
+        let values = generate_values(&field, 50);
+        for v in &values {
+            assert_eq!(v.as_str().unwrap(), "Only");
+        }
+    }
+
+    #[test]
+    fn enum_weighted_distribution() {
+        let field = make_field_with_opts("role", FieldType::Enum, FieldOptions {
+            values: vec![
+                EnumValue { value: "Admin".into(), weight: Some(10.0) },
+                EnumValue { value: "User".into(), weight: Some(90.0) },
+            ],
+            ..Default::default()
+        });
+        let values = generate_values(&field, 1000);
+        let admin_count = values.iter().filter(|v| v.as_str() == Some("Admin")).count();
+        let user_count = values.iter().filter(|v| v.as_str() == Some("User")).count();
+        assert!(admin_count > 30 && admin_count < 200,
+            "10% Admin produced {} out of 1000", admin_count);
+        assert!(user_count > 750,
+            "90% User produced only {} out of 1000", user_count);
+    }
+
+    #[test]
+    fn enum_unweighted_values_get_remaining() {
+        let field = make_field_with_opts("role", FieldType::Enum, FieldOptions {
+            values: vec![
+                EnumValue { value: "Admin".into(), weight: Some(20.0) },
+                EnumValue { value: "UserA".into(), weight: None },
+                EnumValue { value: "UserB".into(), weight: None },
+            ],
+            ..Default::default()
+        });
+        let values = generate_values(&field, 1000);
+        let admin_count = values.iter().filter(|v| v.as_str() == Some("Admin")).count();
+        // Admin=20%, UserA=40%, UserB=40%
+        assert!(admin_count > 100 && admin_count < 350,
+            "Admin count {} not near 20%", admin_count);
+    }
+
+    #[test]
+    fn enum_all_values_returned() {
+        let field = make_field_with_opts("color", FieldType::Enum, FieldOptions {
+            values: vec![
+                EnumValue { value: "Red".into(), weight: None },
+                EnumValue { value: "Green".into(), weight: None },
+                EnumValue { value: "Blue".into(), weight: None },
+            ],
+            ..Default::default()
+        });
+        let values = generate_values(&field, 1000);
+        let has_red = values.iter().any(|v| v.as_str() == Some("Red"));
+        let has_green = values.iter().any(|v| v.as_str() == Some("Green"));
+        let has_blue = values.iter().any(|v| v.as_str() == Some("Blue"));
+        assert!(has_red && has_green && has_blue, "Not all enum values appeared");
+    }
+
+    // ── Blank Percentage ──
+
+    #[test]
+    fn blank_percentage_zero_produces_no_nulls() {
+        let field = make_field("name", FieldType::FirstName);
+        let values = generate_values(&field, 200);
+        let null_count = values.iter().filter(|v| v.is_null()).count();
+        assert_eq!(null_count, 0, "0% blank should produce no nulls");
+    }
+
+    #[test]
+    fn blank_percentage_100_produces_all_nulls() {
+        let field = make_field_with_opts("name", FieldType::FirstName, FieldOptions {
+            blank_percentage: 100.0,
+            ..Default::default()
+        });
+        let values = generate_values(&field, 100);
+        for v in &values {
+            assert!(v.is_null(), "100% blank should be null, got {:?}", v);
+        }
+    }
+
+    #[test]
+    fn blank_percentage_produces_some_nulls() {
+        let field = make_field_with_opts("name", FieldType::FirstName, FieldOptions {
+            blank_percentage: 50.0,
+            ..Default::default()
+        });
+        let values = generate_values(&field, 1000);
+        let null_count = values.iter().filter(|v| v.is_null()).count();
+        assert!(null_count > 300 && null_count < 700,
+            "50% blank produced {} nulls out of 1000", null_count);
+    }
+
+    // ── Color ──
+
+    #[test]
+    fn color_is_known_name() {
+        let known = [
+            "Red", "Blue", "Green", "Yellow", "Orange", "Purple", "Pink",
+            "Brown", "Black", "White", "Gray", "Cyan", "Magenta", "Teal",
+            "Navy", "Maroon", "Olive", "Coral", "Salmon", "Indigo",
+        ];
+        let field = make_field("c", FieldType::Color);
+        let values = generate_values(&field, 50);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(known.contains(&s), "Unknown color: {}", s);
+        }
+    }
+
+    // ── Street Address ──
+
+    #[test]
+    fn street_address_has_building_and_street() {
+        let field = make_field("addr", FieldType::StreetAddress);
+        let values = generate_values(&field, 20);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            assert!(s.contains(' '), "Street address should have spaces: {}", s);
+        }
+    }
+
+    // ── Generate multiple fields ──
+
+    #[test]
+    fn generate_multiple_fields() {
+        let schema = make_schema(vec![
+            make_field("id", FieldType::RowNumber),
+            make_field("name", FieldType::FullName),
+            make_field("email", FieldType::Email),
+        ], 5);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        assert_eq!(data.fields, vec!["id", "name", "email"]);
+        assert_eq!(data.rows.len(), 5);
+        for row in &data.rows {
+            assert!(row.contains_key("id"));
+            assert!(row.contains_key("name"));
+            assert!(row.contains_key("email"));
+        }
+    }
+
+    #[test]
+    fn generate_zero_rows() {
+        let schema = make_schema(vec![make_field("id", FieldType::RowNumber)], 0);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        assert_eq!(data.rows.len(), 0);
+    }
+
+    // ── CSV Output ──
+
+    #[test]
+    fn to_csv_has_header_and_rows() {
+        let schema = make_schema(vec![
+            make_field("id", FieldType::RowNumber),
+            make_field("name", FieldType::FirstName),
+        ], 3);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let csv = data.to_csv().unwrap();
+        let lines: Vec<&str> = csv.trim().split('\n').collect();
+        assert_eq!(lines.len(), 4); // header + 3 rows
+        assert_eq!(lines[0], "id,name");
+    }
+
+    #[test]
+    fn to_csv_null_is_empty_string() {
+        let schema = make_schema(vec![
+            make_field_with_opts("name", FieldType::FirstName, FieldOptions {
+                blank_percentage: 100.0,
+                ..Default::default()
+            }),
+        ], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let csv = data.to_csv().unwrap();
+        let lines: Vec<&str> = csv.trim().split('\n').collect();
+        // CSV may quote the empty value or leave it bare
+        let data_line = lines[1].trim_matches('"');
+        assert!(data_line.is_empty(), "Null should be empty in CSV, got: {}", lines[1]);
+    }
+
+    #[test]
+    fn to_csv_boolean_serialization() {
+        let schema = make_schema(vec![
+            make_field_with_opts("b", FieldType::Boolean, FieldOptions {
+                true_percentage: Some(100.0),
+                ..Default::default()
+            }),
+        ], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let csv = data.to_csv().unwrap();
+        assert!(csv.contains("true"));
+    }
+
+    #[test]
+    fn to_csv_integer_serialization() {
+        let schema = make_schema(vec![
+            make_field_with_opts("n", FieldType::Integer, FieldOptions {
+                min: Some(42.0),
+                max: Some(42.0),
+                ..Default::default()
+            }),
+        ], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let csv = data.to_csv().unwrap();
+        assert!(csv.contains("42"));
+    }
+
+    // ── JSON Output ──
+
+    #[test]
+    fn to_json_is_valid_array() {
+        let schema = make_schema(vec![
+            make_field("id", FieldType::RowNumber),
+            make_field("name", FieldType::FirstName),
+        ], 3);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let json = data.to_json().unwrap();
+        let parsed: Vec<serde_json::Value> = serde_json::from_str(&json).unwrap();
+        assert_eq!(parsed.len(), 3);
+        for row in &parsed {
+            assert!(row.is_object());
+            assert!(row.get("id").is_some());
+            assert!(row.get("name").is_some());
+        }
+    }
+
+    #[test]
+    fn to_json_contains_all_fields() {
+        let schema = make_schema(vec![
+            make_field("z_field", FieldType::RowNumber),
+            make_field("a_field", FieldType::RowNumber),
+        ], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        assert_eq!(data.fields, vec!["z_field", "a_field"]);
+        let json = data.to_json().unwrap();
+        assert!(json.contains("z_field"), "JSON should contain z_field");
+        assert!(json.contains("a_field"), "JSON should contain a_field");
+    }
+
+    #[test]
+    fn to_json_null_values() {
+        let schema = make_schema(vec![
+            make_field_with_opts("name", FieldType::FirstName, FieldOptions {
+                blank_percentage: 100.0,
+                ..Default::default()
+            }),
+        ], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let json = data.to_json().unwrap();
+        assert!(json.contains("null"));
+    }
+
+    #[test]
+    fn to_json_empty_rows() {
+        let schema = make_schema(vec![make_field("id", FieldType::RowNumber)], 0);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let json = data.to_json().unwrap();
+        assert_eq!(json.trim(), "[]");
+    }
+
+    // ── IPv4 format ──
+
+    #[test]
+    fn ipv4_has_four_octets() {
+        let field = make_field("ip", FieldType::Ipv4);
+        let values = generate_values(&field, 20);
+        for v in &values {
+            let s = v.as_str().unwrap();
+            let parts: Vec<&str> = s.split('.').collect();
+            assert_eq!(parts.len(), 4, "IPv4 should have 4 octets: {}", s);
+        }
+    }
+}
