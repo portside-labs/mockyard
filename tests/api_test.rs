@@ -374,3 +374,108 @@ async fn static_missing_file_returns_404() {
     let resp = app().oneshot(req).await.unwrap();
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
+
+// ── Lookup Tests ──
+
+#[tokio::test]
+async fn lookup_produces_correlated_output() {
+    let (status, body) = post_generate(r#"{
+        "fields": [
+            {"name": "", "type": "lookup", "options": {
+                "columns": ["city", "state"],
+                "data": [
+                    ["Miami", "Florida"],
+                    ["Toronto", "Ontario"]
+                ]
+            }}
+        ],
+        "num_rows": 20,
+        "format": "json"
+    }"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    assert_eq!(parsed.len(), 20);
+    for row in &parsed {
+        let city = row["city"].as_str().unwrap();
+        let state = row["state"].as_str().unwrap();
+        match city {
+            "Miami" => assert_eq!(state, "Florida"),
+            "Toronto" => assert_eq!(state, "Ontario"),
+            _ => panic!("Unexpected city: {}", city),
+        }
+    }
+}
+
+#[tokio::test]
+async fn lookup_with_prefix() {
+    let (status, body) = post_generate(r#"{
+        "fields": [
+            {"name": "", "type": "lookup", "options": {
+                "prefix": "hq_",
+                "columns": ["city", "country"],
+                "data": [["Berlin", "DE"]]
+            }}
+        ],
+        "num_rows": 2,
+        "format": "json"
+    }"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let parsed: Vec<serde_json::Value> = serde_json::from_str(&body).unwrap();
+    for row in &parsed {
+        assert_eq!(row["hq_city"].as_str().unwrap(), "Berlin");
+        assert_eq!(row["hq_country"].as_str().unwrap(), "DE");
+    }
+}
+
+#[tokio::test]
+async fn lookup_csv_has_expanded_columns() {
+    let (status, body) = post_generate(r#"{
+        "fields": [
+            {"name": "id", "type": "row_number", "options": {}},
+            {"name": "", "type": "lookup", "options": {
+                "columns": ["city", "state"],
+                "data": [["NYC", "NY"]]
+            }}
+        ],
+        "num_rows": 1,
+        "format": "csv"
+    }"#).await;
+    assert_eq!(status, StatusCode::OK);
+    let lines: Vec<&str> = body.trim().split('\n').collect();
+    assert_eq!(lines[0], "id,city,state");
+}
+
+#[tokio::test]
+async fn lookup_rejects_empty_columns() {
+    let (status, body) = post_generate(r#"{
+        "fields": [
+            {"name": "loc", "type": "lookup", "options": {
+                "columns": [],
+                "data": []
+            }}
+        ],
+        "num_rows": 1,
+        "format": "json"
+    }"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let msg = error_message(&body);
+    assert!(msg.contains("columns"), "Error should mention columns: {}", msg);
+}
+
+#[tokio::test]
+async fn lookup_rejects_mismatched_row_length() {
+    let (status, body) = post_generate(r#"{
+        "fields": [
+            {"name": "loc", "type": "lookup", "options": {
+                "columns": ["a", "b"],
+                "data": [["x", "y", "z"]]
+            }}
+        ],
+        "num_rows": 1,
+        "format": "json"
+    }"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    let msg = error_message(&body);
+    assert!(msg.contains("3 values"), "Error should mention value count: {}", msg);
+    assert!(msg.contains("expected 2"), "Error should mention expected count: {}", msg);
+}

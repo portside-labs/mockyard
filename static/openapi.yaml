@@ -201,6 +201,7 @@ components:
         - enum
         - percentage
         - currency
+        - lookup
 
     FieldOptions:
       type: object
@@ -242,6 +243,28 @@ components:
             among values without an explicit weight. Total weights must not exceed 100%.
           items:
             $ref: '#/components/schemas/EnumValue'
+        prefix:
+          type: string
+          description: |
+            Optional prefix prepended to each column name for `lookup` fields.
+            Concatenated as-is — use "office_" for snake_case, "office" with capitalized columns for camelCase, etc.
+          example: office_
+        columns:
+          type: array
+          description: Column names for `lookup` fields. Each becomes a separate column in the output.
+          items:
+            type: string
+          example: ["city", "state", "country"]
+        data:
+          type: array
+          description: |
+            Rows of correlated data for `lookup` fields. Each row must have the same number of values as `columns`.
+            A random row is picked for each generated record, keeping values correlated.
+          items:
+            type: array
+            items:
+              type: string
+          example: [["Miami", "Florida", "US"], ["Toronto", "Ontario", "CA"]]
 
     EnumValue:
       type: object

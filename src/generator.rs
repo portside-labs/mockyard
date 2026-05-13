@@ -23,21 +23,38 @@ impl Generator {
     }
 
     pub fn generate(&mut self, schema: &Schema) -> GeneratedData {
+        // Build the output field list, expanding lookups into their columns
+        let mut fields: Vec<String> = Vec::new();
+        for field in &schema.fields {
+            if matches!(field.field_type, FieldType::Lookup) {
+                let prefix = field.options.prefix.as_deref().unwrap_or("");
+                for col in &field.options.columns {
+                    fields.push(format!("{}{}", prefix, col));
+                }
+            } else {
+                fields.push(field.name.clone());
+            }
+        }
+
         let mut rows: Vec<HashMap<String, serde_json::Value>> = Vec::with_capacity(schema.num_rows);
 
         for row_index in 0..schema.num_rows {
             let mut row = HashMap::new();
             for field in &schema.fields {
-                let value = self.generate_field(field, row_index + 1);
-                row.insert(field.name.clone(), value);
+                if matches!(field.field_type, FieldType::Lookup) {
+                    let lookup_values = self.generate_lookup(field);
+                    for (k, v) in lookup_values {
+                        row.insert(k, v);
+                    }
+                } else {
+                    let value = self.generate_field(field, row_index + 1);
+                    row.insert(field.name.clone(), value);
+                }
             }
             rows.push(row);
         }
 
-        GeneratedData {
-            fields: schema.fields.iter().map(|f| f.name.clone()).collect(),
-            rows,
-        }
+        GeneratedData { fields, rows }
     }
 
     fn generate_field(&mut self, field: &FieldDefinition, row_number: usize) -> serde_json::Value {
@@ -105,7 +122,47 @@ impl Generator {
             FieldType::Enum => self.generate_enum(&field.options),
             FieldType::Percentage => self.generate_percentage(&field.options),
             FieldType::Currency => self.generate_currency(&field.options),
+            FieldType::Lookup => serde_json::Value::Null, // handled separately in generate()
         }
+    }
+
+    fn generate_lookup(&mut self, field: &FieldDefinition) -> Vec<(String, serde_json::Value)> {
+        let prefix = field.options.prefix.as_deref().unwrap_or("");
+        let columns = &field.options.columns;
+
+        if field.options.data.is_empty() || columns.is_empty() {
+            return columns
+                .iter()
+                .map(|c| (format!("{}{}", prefix, c), serde_json::Value::Null))
+                .collect();
+        }
+
+        // Check blank percentage
+        if field.options.blank_percentage > 0.0 {
+            let roll: f64 = self.rng.gen_range(0.0..100.0);
+            if roll < field.options.blank_percentage {
+                return columns
+                    .iter()
+                    .map(|c| (format!("{}{}", prefix, c), serde_json::Value::Null))
+                    .collect();
+            }
+        }
+
+        // Pick a random row
+        let row_idx = self.rng.gen_range(0..field.options.data.len());
+        let data_row = &field.options.data[row_idx];
+
+        columns
+            .iter()
+            .enumerate()
+            .map(|(i, col)| {
+                let value = data_row
+                    .get(i)
+                    .map(|s| json_string(s.clone()))
+                    .unwrap_or(serde_json::Value::Null);
+                (format!("{}{}", prefix, col), value)
+            })
+            .collect()
     }
 
     fn generate_integer(&mut self, options: &FieldOptions) -> serde_json::Value {
@@ -856,5 +913,140 @@ mod tests {
             let parts: Vec<&str> = s.split('.').collect();
             assert_eq!(parts.len(), 4, "IPv4 should have 4 octets: {}", s);
         }
+    }
+
+    // ── Lookup ──
+
+    fn make_lookup_field(prefix: Option<&str>, columns: Vec<&str>, data: Vec<Vec<&str>>) -> FieldDefinition {
+        FieldDefinition {
+            name: "".to_string(),
+            field_type: FieldType::Lookup,
+            options: FieldOptions {
+                prefix: prefix.map(|s| s.to_string()),
+                columns: columns.into_iter().map(|s| s.to_string()).collect(),
+                data: data.into_iter().map(|r| r.into_iter().map(|s| s.to_string()).collect()).collect(),
+                ..Default::default()
+            },
+        }
+    }
+
+    #[test]
+    fn lookup_produces_correlated_columns() {
+        let field = make_lookup_field(None, vec!["city", "state"], vec![
+            vec!["Miami", "Florida"],
+            vec!["Toronto", "Ontario"],
+        ]);
+        let schema = make_schema(vec![field], 50);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+
+        assert_eq!(data.fields, vec!["city", "state"]);
+        for row in &data.rows {
+            let city = row["city"].as_str().unwrap();
+            let state = row["state"].as_str().unwrap();
+            match city {
+                "Miami" => assert_eq!(state, "Florida"),
+                "Toronto" => assert_eq!(state, "Ontario"),
+                _ => panic!("Unexpected city: {}", city),
+            }
+        }
+    }
+
+    #[test]
+    fn lookup_with_prefix() {
+        let field = make_lookup_field(Some("office_"), vec!["city", "state"], vec![
+            vec!["NYC", "NY"],
+        ]);
+        let schema = make_schema(vec![field], 3);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+
+        assert_eq!(data.fields, vec!["office_city", "office_state"]);
+        for row in &data.rows {
+            assert_eq!(row["office_city"].as_str().unwrap(), "NYC");
+            assert_eq!(row["office_state"].as_str().unwrap(), "NY");
+        }
+    }
+
+    #[test]
+    fn lookup_without_prefix() {
+        let field = make_lookup_field(None, vec!["a", "b"], vec![vec!["x", "y"]]);
+        let schema = make_schema(vec![field], 1);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        assert_eq!(data.fields, vec!["a", "b"]);
+    }
+
+    #[test]
+    fn lookup_empty_data_produces_nulls() {
+        let field = make_lookup_field(None, vec!["city", "state"], vec![]);
+        let schema = make_schema(vec![field], 3);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        for row in &data.rows {
+            assert!(row["city"].is_null());
+            assert!(row["state"].is_null());
+        }
+    }
+
+    #[test]
+    fn lookup_blank_percentage() {
+        let field = FieldDefinition {
+            name: "".to_string(),
+            field_type: FieldType::Lookup,
+            options: FieldOptions {
+                blank_percentage: 100.0,
+                columns: vec!["a".to_string()],
+                data: vec![vec!["val".to_string()]],
+                ..Default::default()
+            },
+        };
+        let schema = make_schema(vec![field], 20);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        for row in &data.rows {
+            assert!(row["a"].is_null(), "100% blank lookup should produce nulls");
+        }
+    }
+
+    #[test]
+    fn lookup_mixed_with_regular_fields() {
+        let schema = make_schema(vec![
+            make_field("id", FieldType::RowNumber),
+            make_lookup_field(None, vec!["city", "country"], vec![
+                vec!["Paris", "FR"],
+            ]),
+            make_field("email", FieldType::Email),
+        ], 3);
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        assert_eq!(data.fields, vec!["id", "city", "country", "email"]);
+        for row in &data.rows {
+            assert!(row["id"].is_number());
+            assert_eq!(row["city"].as_str().unwrap(), "Paris");
+            assert_eq!(row["country"].as_str().unwrap(), "FR");
+            assert!(row["email"].as_str().unwrap().contains('@'));
+        }
+    }
+
+    #[test]
+    fn lookup_csv_output() {
+        let schema = Schema {
+            fields: vec![
+                make_field("id", FieldType::RowNumber),
+                make_lookup_field(None, vec!["city", "state"], vec![
+                    vec!["Miami", "FL"],
+                ]),
+            ],
+            num_rows: 2,
+            format: OutputFormat::Csv,
+        };
+        let mut generator = Generator::new();
+        let data = generator.generate(&schema);
+        let csv = data.to_csv().unwrap();
+        let lines: Vec<&str> = csv.trim().split('\n').collect();
+        assert_eq!(lines[0], "id,city,state");
+        assert!(lines[1].starts_with("1,Miami,FL"));
+        assert!(lines[2].starts_with("2,Miami,FL"));
     }
 }

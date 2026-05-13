@@ -61,6 +61,7 @@ pub enum FieldType {
     Enum,
     Percentage,
     Currency,
+    Lookup,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -92,6 +93,18 @@ pub struct FieldOptions {
     /// For Decimal/Currency: number of decimal places
     #[serde(default)]
     pub decimals: Option<u32>,
+
+    /// For Lookup: optional prefix prepended to each column name
+    #[serde(default)]
+    pub prefix: Option<String>,
+
+    /// For Lookup: column names for the lookup table
+    #[serde(default)]
+    pub columns: Vec<String>,
+
+    /// For Lookup: rows of data, each row must match the length of columns
+    #[serde(default)]
+    pub data: Vec<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -286,7 +299,7 @@ mod tests {
             "job_title", "credit_card", "domain_name", "ipv4", "ipv6",
             "mac_address", "user_agent", "uuid", "color", "hex_color",
             "date", "date_time", "time", "paragraph", "sentence", "word",
-            "integer", "decimal", "boolean", "enum", "percentage", "currency",
+            "integer", "decimal", "boolean", "enum", "percentage", "currency", "lookup",
         ];
         for t in types {
             let json = format!("\"{}\"", t);

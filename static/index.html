@@ -73,16 +73,6 @@ body {
   gap: 0.6rem;
 }
 
-.logo-icon {
-  width: 26px;
-  height: 26px;
-  background: var(--accent);
-  border-radius: 5px;
-  display: grid;
-  place-items: center;
-}
-
-.logo-icon svg { width: 16px; height: 16px; }
 
 
 .header-link {
@@ -108,7 +98,7 @@ body {
 /* ── Schema Table ── */
 .schema-header {
   display: grid;
-  grid-template-columns: 1fr 200px 1fr 40px;
+  grid-template-columns: 28px 1fr 200px 1fr 40px;
   gap: 0.75rem;
   padding: 0 0.5rem 0.6rem;
   border-bottom: 1px solid var(--border);
@@ -126,13 +116,14 @@ body {
 
 .field-row {
   display: grid;
-  grid-template-columns: 1fr 200px 1fr 40px;
+  grid-template-columns: 28px 1fr 200px 1fr 40px;
   gap: 0.75rem;
   padding: 0.4rem 0.5rem;
   border-radius: var(--radius);
   align-items: start;
-  transition: background var(--transition);
+  transition: background var(--transition), border-color var(--transition);
   animation: slideIn 200ms ease both;
+  border: 1px solid transparent;
 }
 
 @keyframes slideIn {
@@ -141,6 +132,40 @@ body {
 }
 
 .field-row:hover { background: rgba(255,255,255,0.015); }
+
+.field-row.drag-over-above {
+  box-shadow: 0 -2px 0 0 var(--accent);
+  border-radius: 0;
+}
+
+.field-row.drag-over-below {
+  box-shadow: 0 2px 0 0 var(--accent);
+  border-radius: 0;
+}
+
+.field-row.dragging {
+  opacity: 0.4;
+}
+
+/* ── Drag Handle ── */
+.drag-handle {
+  width: 28px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  cursor: grab;
+  color: var(--text-muted);
+  border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+  margin-top: 1px;
+}
+
+.drag-handle:hover {
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.04);
+}
+
+.drag-handle:active { cursor: grabbing; }
 
 /* ── Inputs ── */
 input, select {
@@ -282,6 +307,47 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
 }
 
 .btn-enum-remove:hover { color: var(--danger); background: var(--danger-dim); }
+
+/* ── Lookup Row Layout ── */
+.field-row-lookup {
+  grid-template-columns: 28px 1fr 160px auto 40px;
+}
+
+/* ── Lookup Builder ── */
+.lookup-builder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  width: 100%;
+}
+
+.lookup-table {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.lookup-header,
+.lookup-row {
+  display: grid;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+.lookup-col-input {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.78rem;
+  font-family: var(--mono);
+  font-weight: 600;
+  background: var(--bg-raised);
+  color: var(--accent);
+  min-width: 0;
+}
+
+.lookup-cell-input {
+  padding: 0.3rem 0.45rem;
+  font-size: 0.8rem;
+  min-width: 0;
+}
 
 /* ── Remove Field Button ── */
 .btn-remove {
@@ -481,14 +547,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
 <header class="header">
   <div class="header-inner">
     <div class="logo">
-      <div class="logo-icon">
-        <svg viewBox="0 0 24 24" fill="none" stroke="#0a0a0c" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7" rx="1"/>
-          <rect x="14" y="3" width="7" height="7" rx="1"/>
-          <rect x="3" y="14" width="7" height="7" rx="1"/>
-          <rect x="14" y="14" width="7" height="7" rx="1"/>
-        </svg>
-      </div><span>mock<span style="color:var(--accent)">yard</span></span>
+      <span>mock<span style="color:var(--accent)">yard</span></span>
     </div>
     <a href="/docs" class="header-link">API Docs</a>
   </div>
@@ -496,6 +555,7 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
 
 <main class="main" x-data="mockyard()" x-effect="persist()">
   <div class="schema-header">
+    <span></span>
     <span>Field Name</span>
     <span>Type</span>
     <span>Options</span>
@@ -504,9 +564,59 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
 
   <div>
     <template x-for="(field, fi) in fields" :key="field.id">
-      <div class="field-row">
-        <input type="text" class="field-name-input"
-               x-model="field.name" placeholder="field_name">
+      <div class="field-row" :class="field.type === 'lookup' && 'field-row-lookup'"
+           draggable="true"
+           @dragstart="dragStart($event, fi)"
+           @dragend="dragEnd($event)"
+           @dragover.prevent="dragOver($event, fi)"
+           @dragleave="dragLeave($event)"
+           @drop.prevent="drop($event, fi)">
+        <div class="drag-handle" @mousedown.stop>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="9" cy="5" r="1.5"/><circle cx="15" cy="5" r="1.5"/>
+            <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+            <circle cx="9" cy="19" r="1.5"/><circle cx="15" cy="19" r="1.5"/>
+          </svg>
+        </div>
+
+        <!-- ── Standard field layout ── -->
+        <template x-if="field.type !== 'lookup'">
+          <input type="text" class="field-name-input"
+                 x-model="field.name" placeholder="field_name">
+        </template>
+
+        <!-- ── Lookup: table on the left ── -->
+        <template x-if="field.type === 'lookup'">
+          <div class="lookup-builder">
+            <div class="lookup-table">
+              <div class="lookup-header" :style="`grid-template-columns: repeat(${field.lookupColumns.length}, 1fr) 28px`">
+                <template x-for="(col, ci) in field.lookupColumns" :key="'col-'+ci">
+                  <input type="text" class="lookup-col-input" :value="col" placeholder="column"
+                         @input="field.lookupColumns[ci] = $event.target.value">
+                </template>
+                <button class="btn-enum-add" @click="field.lookupColumns.push(''); field.lookupData.forEach(r => r.push(''))" style="width:28px;padding:0.25rem 0;text-align:center">+</button>
+              </div>
+              <template x-for="(row, ri) in field.lookupData" :key="'row-'+ri">
+                <div class="lookup-row" :style="`grid-template-columns: repeat(${field.lookupColumns.length}, 1fr) 28px`">
+                  <template x-for="(cell, ci) in row" :key="'cell-'+ri+'-'+ci">
+                    <input type="text" class="lookup-cell-input" :value="cell" placeholder=""
+                           @input="field.lookupData[ri][ci] = $event.target.value">
+                  </template>
+                  <button class="btn-enum-remove" x-show="field.lookupData.length > 1"
+                          @click="field.lookupData.splice(ri, 1)" style="width:28px;text-align:center">&times;</button>
+                  <div x-show="field.lookupData.length <= 1" style="width:28px"></div>
+                </div>
+              </template>
+              <div style="display:flex;gap:0.35rem;align-items:center">
+                <button class="btn-enum-add" @click="field.lookupData.push(field.lookupColumns.map(() => ''))">+ row</button>
+                <template x-if="field.lookupColumns.length > 1">
+                  <button class="btn-enum-add" style="color:var(--danger);border-color:rgba(247,111,111,0.3)"
+                          @click="field.lookupColumns.pop(); field.lookupData.forEach(r => r.pop())">&minus; col</button>
+                </template>
+              </div>
+            </div>
+          </div>
+        </template>
 
         <select x-model="field.type">
           <template x-for="group in typeGroups" :key="group.name">
@@ -524,6 +634,12 @@ input[type="number"]::-webkit-inner-spin-button { opacity: 0.3; }
             <label>blank</label>
             <input type="number" x-model.number="field.blankPct" min="0" max="100" step="1">
             <label>%</label>
+          </div>
+
+          <!-- Lookup: prefix -->
+          <div class="opt-group" x-show="field.type === 'lookup'">
+            <label>prefix</label>
+            <input type="text" x-model="field.lookupPrefix" placeholder="none" style="width:80px;text-align:left">
           </div>
 
           <!-- Boolean: true % -->
@@ -662,6 +778,7 @@ const FIELD_TYPES = [
   { value: 'currency', label: 'Currency', group: 'Number' },
   { value: 'boolean', label: 'Boolean', group: 'Basic' },
   { value: 'enum', label: 'Enum', group: 'Basic' },
+  { value: 'lookup', label: 'Lookup', group: 'Basic' },
 ];
 
 const NUMERIC_TYPES = new Set(['integer', 'decimal', 'percentage', 'currency']);
@@ -709,6 +826,47 @@ function mockyard() {
     statusMsg: '',
     statusType: '',
     typeGroups: buildTypeGroups(),
+    dragFromIndex: null,
+
+    dragStart(e, fi) {
+      this.dragFromIndex = fi;
+      e.dataTransfer.effectAllowed = 'move';
+      e.target.closest('.field-row').classList.add('dragging');
+    },
+
+    dragEnd(e) {
+      this.dragFromIndex = null;
+      document.querySelectorAll('.field-row').forEach(el => {
+        el.classList.remove('dragging', 'drag-over-above', 'drag-over-below');
+      });
+    },
+
+    dragOver(e, fi) {
+      if (this.dragFromIndex === null || this.dragFromIndex === fi) return;
+      const row = e.target.closest('.field-row');
+      if (!row) return;
+      const rect = row.getBoundingClientRect();
+      const midY = rect.top + rect.height / 2;
+      row.classList.remove('drag-over-above', 'drag-over-below');
+      row.classList.add(e.clientY < midY ? 'drag-over-above' : 'drag-over-below');
+    },
+
+    dragLeave(e) {
+      e.target.closest('.field-row')?.classList.remove('drag-over-above', 'drag-over-below');
+    },
+
+    drop(e, fi) {
+      const fromIndex = this.dragFromIndex;
+      if (fromIndex === null || fromIndex === fi) return;
+      const row = e.target.closest('.field-row');
+      const rect = row.getBoundingClientRect();
+      const dropAbove = e.clientY < rect.top + rect.height / 2;
+      let toIndex = dropAbove ? fi : fi + 1;
+      if (fromIndex < toIndex) toIndex--;
+      const item = this.fields.splice(fromIndex, 1)[0];
+      this.fields.splice(toIndex, 0, item);
+      this.dragFromIndex = null;
+    },
 
     isNumeric(type) { return NUMERIC_TYPES.has(type); },
     isDecimal(type) { return DECIMAL_TYPES.has(type); },
@@ -734,6 +892,8 @@ function mockyard() {
             name: f.name, type: f.type, blankPct: f.blankPct,
             truePct: f.truePct, min: f.min, max: f.max,
             decimals: f.decimals, enumValues: JSON.parse(JSON.stringify(f.enumValues)),
+            lookupPrefix: f.lookupPrefix, lookupColumns: [...f.lookupColumns],
+            lookupData: JSON.parse(JSON.stringify(f.lookupData)),
           })),
           numRows: this.numRows,
           format: this.format,
@@ -754,6 +914,15 @@ function mockyard() {
           }
           if (!f.enumValues.some(v => v.value.trim() !== '')) {
             return `Field "${f.name || 'unnamed'}": enum must have at least one value.`;
+          }
+        }
+        if (f.type === 'lookup') {
+          const cols = f.lookupColumns.filter(c => c.trim() !== '');
+          if (cols.length === 0) {
+            return `Lookup field "${f.name || 'unnamed'}": must have at least one column.`;
+          }
+          if (f.lookupData.length === 0 || !f.lookupData.some(r => r.some(c => c.trim() !== ''))) {
+            return `Lookup field "${f.name || 'unnamed'}": must have at least one data row.`;
           }
         }
       }
@@ -832,6 +1001,11 @@ function mockyard() {
                 return entry;
               });
           }
+          if (f.type === 'lookup') {
+            def.options.columns = f.lookupColumns.filter(c => c.trim() !== '');
+            def.options.data = f.lookupData;
+            if (f.lookupPrefix) def.options.prefix = f.lookupPrefix;
+          }
           return def;
         }),
         num_rows: this.numRows,
@@ -853,6 +1027,13 @@ function makeField(config) {
     enumValues: config?.enumValues
       ? JSON.parse(JSON.stringify(config.enumValues))
       : [{ value: '', weight: null }],
+    lookupPrefix: config?.lookupPrefix ?? '',
+    lookupColumns: config?.lookupColumns
+      ? [...config.lookupColumns]
+      : ['city', 'state', 'country'],
+    lookupData: config?.lookupData
+      ? JSON.parse(JSON.stringify(config.lookupData))
+      : [['', '', '']],
   };
 }
 

@@ -53,7 +53,7 @@ Full interactive API docs with a try-it-out panel are available at `/docs`. The 
 | Date & Time | `date`, `date_time`, `time` |
 | Text | `paragraph`, `sentence`, `word` |
 | Number | `integer`, `decimal`, `percentage`, `currency` |
-| Basic | `row_number`, `uuid`, `color`, `hex_color`, `boolean`, `enum` |
+| Basic | `row_number`, `uuid`, `color`, `hex_color`, `boolean`, `enum`, `lookup` |
 
 ## Field Options
 
@@ -67,6 +67,46 @@ Type-specific options:
 | `decimals` | `decimal`, `currency` | Decimal places (default: 2) |
 | `true_percentage` | `boolean` | % of values that are `true` (default: 50) |
 | `values` | `enum` | List of `{ "value": "...", "weight": N }` entries. Weights are percentages. Unweighted values split the remainder equally. |
+| `columns`, `data` | `lookup` | Correlated multi-column data. See below. |
+| `prefix` | `lookup` | Optional string prepended to each column name (e.g. `"office_"`). |
+
+### Lookup Fields
+
+Lookup fields generate correlated data by sampling rows from a table you define. Each row stays together, so values like city/state/country are always consistent.
+
+```json
+{
+  "name": "",
+  "type": "lookup",
+  "options": {
+    "columns": ["city", "state", "country"],
+    "data": [
+      ["Miami", "Florida", "US"],
+      ["New York", "New York", "US"],
+      ["Toronto", "Ontario", "CA"],
+      ["Vancouver", "British Columbia", "CA"]
+    ]
+  }
+}
+```
+
+This produces three separate columns (`city`, `state`, `country`) in the output. A random row is picked for each record, keeping the values correlated.
+
+To namespace the columns, set `prefix`:
+
+```json
+{
+  "name": "",
+  "type": "lookup",
+  "options": {
+    "prefix": "office_",
+    "columns": ["city", "state", "country"],
+    "data": [["Miami", "Florida", "US"]]
+  }
+}
+```
+
+Output columns: `office_city`, `office_state`, `office_country`. The prefix is concatenated as-is — use `"office_"` for snake_case, `"office"` with `"City"` columns for camelCase, etc.
 
 ## Contributing
 

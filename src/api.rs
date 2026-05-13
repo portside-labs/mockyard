@@ -48,8 +48,8 @@ pub async fn generate(Json(request): Json<GenerateRequest>) -> Response {
             .into_response();
     }
 
-    // Validate enum weights
     for field in &schema.fields {
+        // Validate enum weights
         if matches!(field.field_type, crate::schema::FieldType::Enum) {
             let total_weight: f64 = field
                 .options
@@ -68,6 +68,37 @@ pub async fn generate(Json(request): Json<GenerateRequest>) -> Response {
                     })),
                 )
                     .into_response();
+            }
+        }
+
+        // Validate lookup fields
+        if matches!(field.field_type, crate::schema::FieldType::Lookup) {
+            if field.options.columns.is_empty() {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": format!(
+                            "Lookup field \"{}\": columns must not be empty",
+                            field.name
+                        )
+                    })),
+                )
+                    .into_response();
+            }
+            let col_count = field.options.columns.len();
+            for (i, row) in field.options.data.iter().enumerate() {
+                if row.len() != col_count {
+                    return (
+                        StatusCode::BAD_REQUEST,
+                        Json(serde_json::json!({
+                            "error": format!(
+                                "Lookup field \"{}\": data row {} has {} values, expected {} (matching columns)",
+                                field.name, i + 1, row.len(), col_count
+                            )
+                        })),
+                    )
+                        .into_response();
+                }
             }
         }
     }
