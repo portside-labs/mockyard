@@ -38,11 +38,11 @@ pub async fn generate(Json(request): Json<GenerateRequest>) -> Response {
             .into_response();
     }
 
-    if schema.num_rows > 100_000 {
+    if schema.num_rows > 10_000_000 {
         return (
             StatusCode::BAD_REQUEST,
             Json(serde_json::json!({
-                "error": "num_rows must not exceed 100,000"
+                "error": "num_rows must not exceed 10,000,000"
             })),
         )
             .into_response();

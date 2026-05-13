@@ -51,11 +51,11 @@ async fn rejects_zero_rows() {
 async fn rejects_too_many_rows() {
     let (status, body) = post_generate(r#"{
         "fields": [{"name": "id", "type": "row_number", "options": {}}],
-        "num_rows": 100001,
+        "num_rows": 10000001,
         "format": "csv"
     }"#).await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
-    assert_eq!(error_message(&body), "num_rows must not exceed 100,000");
+    assert_eq!(error_message(&body), "num_rows must not exceed 10,000,000");
 }
 
 #[tokio::test]

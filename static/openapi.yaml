@@ -136,7 +136,7 @@ components:
         num_rows:
           type: integer
           minimum: 1
-          maximum: 100000
+          maximum: 10000000
           description: Number of rows to generate.
           example: 1000
         format:
