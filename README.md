@@ -4,11 +4,12 @@ A fast, self-hostable mock data generator. Open-source alternative to [Mockaroo]
 
 Built with Rust for speed and low memory usage. Includes a web UI and a REST API. Generates CSV or JSON.
 
+![Mockyard UI](.github/screenshot.png)
+
 ## Run it
 
 ```bash
-docker build -t mockyard .
-docker run -p 8080:8080 mockyard
+docker run -p 8080:8080 ghcr.io/portside-labs/mockyard
 ```
 
 Open [http://localhost:8080](http://localhost:8080) to use the UI, or [http://localhost:8080/docs](http://localhost:8080/docs) for API docs.
